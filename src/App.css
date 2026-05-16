@@ -204,6 +204,40 @@ button:disabled {
   background: #f9fafb;
 }
 
+.nummerplaat-suggesties {
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.nummerplaat-suggesties strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #1e3a8a;
+  font-size: 14px;
+}
+
+.suggestie-knoppen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestie-knoppen button {
+  padding: 8px 10px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: white;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.suggestie-knoppen button:hover {
+  background: #dbeafe;
+}
+
 .nummerplaatlijst {
   margin-top: 14px;
   max-height: 180px;

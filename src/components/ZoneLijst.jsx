@@ -3,6 +3,7 @@ function ZoneLijst({
   actieveZoneId,
   actiefTelmoment,
   krijgNummerplaten,
+  krijgVoorgesteldeNummerplaten = () => [],
   telmomentLabel,
   bepaalKleur,
   selecteerZone,
@@ -27,6 +28,9 @@ function ZoneLijst({
       {zones.map((zone) => {
         const isOpen = actieveZoneId === zone.id;
         const nummerplaten = krijgNummerplaten(zone);
+        const voorgesteldeNummerplaten = isInvuller
+          ? krijgVoorgesteldeNummerplaten(zone)
+          : [];
         const aantal = nummerplaten.length;
 
         const bezettingsgraad =
@@ -155,6 +159,26 @@ function ZoneLijst({
                         Voeg toe
                       </button>
                     </div>
+
+                    {voorgesteldeNummerplaten.length > 0 && (
+                      <div className="nummerplaat-suggesties">
+                        <strong>Eerder in deze zone</strong>
+
+                        <div className="suggestie-knoppen">
+                          {voorgesteldeNummerplaten.map((plaat) => (
+                            <button
+                              type="button"
+                              key={plaat}
+                              onClick={() =>
+                                voegNummerplaatToe(zone.id, plaat)
+                              }
+                            >
+                              {plaat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="nummerplaatlijst">
                       {nummerplaten.length === 0 ? (

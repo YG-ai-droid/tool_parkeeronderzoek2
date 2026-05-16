@@ -9,6 +9,7 @@ function InvullerDashboard({
   actieveZoneId,
   actiefTelmoment,
   krijgNummerplaten,
+  krijgVoorgesteldeNummerplaten,
   bepaalKleur,
   selecteerZone,
   toggleZoneOpen,
@@ -48,6 +49,7 @@ function InvullerDashboard({
         actieveZoneId={actieveZoneId}
         actiefTelmoment={actiefTelmoment}
         krijgNummerplaten={krijgNummerplaten}
+        krijgVoorgesteldeNummerplaten={krijgVoorgesteldeNummerplaten}
         telmomentLabel={telmomentLabel}
         bepaalKleur={bepaalKleur}
         selecteerZone={selecteerZone}

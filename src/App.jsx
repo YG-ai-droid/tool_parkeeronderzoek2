@@ -185,6 +185,32 @@ function App() {
     return zone.tellingen?.[telmomentId] || [];
   }
 
+  function krijgVoorgesteldeNummerplaten(zone) {
+    const actiefIndex = telmomenten.findIndex(
+      (telmoment) => telmoment.id === actiefTelmomentId
+    );
+
+    if (actiefIndex <= 0) return [];
+
+    const huidigeNummerplaten = new Set(krijgNummerplaten(zone));
+    const suggesties = [];
+    const gezien = new Set();
+
+    telmomenten
+      .slice(0, actiefIndex)
+      .reverse()
+      .forEach((telmoment) => {
+        krijgNummerplaten(zone, telmoment.id).forEach((plaat) => {
+          if (!huidigeNummerplaten.has(plaat) && !gezien.has(plaat)) {
+            suggesties.push(plaat);
+            gezien.add(plaat);
+          }
+        });
+      });
+
+    return suggesties;
+  }
+
   function telmomentLabel(telmoment) {
     if (!telmoment) return "geen telmoment";
 
@@ -462,7 +488,7 @@ function App() {
     );
   }
 
-  function voegNummerplaatToe(zoneId) {
+  function voegNummerplaatToe(zoneId, voorgesteldePlaat = null) {
     if (!isInvuller) return;
 
     if (!actiefTelmomentId) {
@@ -474,7 +500,7 @@ function App() {
       zones.map((zone) => {
         if (zone.id !== zoneId) return zone;
 
-        const plaat = zone.invoer.trim();
+        const plaat = (voorgesteldePlaat || zone.invoer).trim().toUpperCase();
         if (plaat === "") return zone;
 
         const bestaandePlaten = krijgNummerplaten(zone, actiefTelmomentId);
@@ -490,7 +516,7 @@ function App() {
             ...(zone.tellingen || {}),
             [actiefTelmomentId]: [...bestaandePlaten, plaat],
           },
-          invoer: "",
+          invoer: voorgesteldePlaat ? zone.invoer : "",
         };
       })
     );
@@ -823,6 +849,7 @@ function App() {
               actieveZoneId={actieveZoneId}
               actiefTelmoment={actiefTelmoment}
               krijgNummerplaten={krijgNummerplaten}
+              krijgVoorgesteldeNummerplaten={krijgVoorgesteldeNummerplaten}
               telmomentLabel={telmomentLabel}
               bepaalKleur={bepaalKleur}
               selecteerZone={selecteerZone}
@@ -854,6 +881,7 @@ function App() {
               actieveZoneId={actieveZoneId}
               actiefTelmoment={actiefTelmoment}
               krijgNummerplaten={krijgNummerplaten}
+              krijgVoorgesteldeNummerplaten={krijgVoorgesteldeNummerplaten}
               bepaalKleur={bepaalKleur}
               selecteerZone={selecteerZone}
               toggleZoneOpen={toggleZoneOpen}
