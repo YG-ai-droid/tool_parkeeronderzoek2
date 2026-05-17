@@ -80,7 +80,7 @@ h1 {
 
 .vaste-banner .kleur-slider-container {
   height: 44px;
-  margin: 4px 0 0;
+  margin: 6px 0 0;
 }
 
 .vaste-banner .kleur-schaal {
@@ -98,6 +98,12 @@ h1 {
   padding: 2px 6px;
 }
 
+.vaste-banner .kleurcode-grenzen {
+  margin-top: 4px;
+  font-size: 11px;
+  gap: 8px;
+}
+
 .vaste-banner .kleurcode-uitleg.compact {
   display: none;
 }
@@ -106,6 +112,32 @@ h1 {
   display: grid;
   gap: 4px;
   min-width: 220px;
+}
+
+.project-kaart {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) minmax(220px, 1.3fr) repeat(3, auto);
+  gap: 6px;
+  align-items: center;
+  flex: 1 1 620px;
+}
+
+.project-kaart input,
+.project-kaart select {
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.project-kaart button {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.project-kaart-compact {
+  grid-template-columns: auto minmax(220px, 1fr);
+  flex: 0 1 360px;
 }
 
 .analyse-samenvatting {
@@ -342,6 +374,20 @@ button:disabled {
   margin: 14px 0;
 }
 
+.beheer-zone-acties {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.beheer-zone-acties button {
+  min-width: 0;
+  padding: 7px 6px;
+  font-size: 12px;
+  line-height: 1.15;
+  white-space: normal;
+}
+
 .beheer-knoppen {
   display: flex;
   flex-wrap: wrap;
@@ -518,7 +564,33 @@ button:disabled {
   position: relative;
   height: 92px;
   margin: 24px 0 14px;
-  padding: 0 9px;
+  padding: 0;
+}
+
+.kleurcode-grenzen {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: #374151;
+  font-size: 13px;
+}
+
+.kleurcode-grenzen span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.kleurcode-grenzen i {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  flex: 0 0 auto;
 }
 
 .kleur-schaal {
@@ -599,6 +671,40 @@ button:disabled {
 
 /* Analyse: taartdiagrammen */
 
+.analyse-kader {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 20px;
+}
+
+.analyse-kader-titel {
+  color: #111827;
+  margin: 0 0 14px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.analyse-kader .grafiekkaart,
+.analyse-kader .rotatieblok,
+.analyse-kader .statusbalk,
+.analyse-kader .taartkaart {
+  border-color: #dbe3ef;
+}
+
+.analyse-kader-clusters {
+  border-color: #d8b4fe;
+  background: #faf5ff;
+}
+
+.analyse-kader-clusters .grafiekkaart,
+.analyse-kader-clusters .rotatieblok,
+.analyse-kader-clusters .statusbalk,
+.analyse-kader-clusters .taartkaart {
+  border-color: #ead6ff;
+}
+
 .taart-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -624,8 +730,9 @@ button:disabled {
 
 .taartkaart h3 {
   color: black;
-  margin-top: 0;
+  margin: 0 0 8px;
   font-size: 17px;
+  line-height: 1.2;
 }
 
 .taartdiagram {
@@ -663,7 +770,9 @@ button:disabled {
 
 .grafiekkaart h2 {
   color: black;
-  margin-top: 0;
+  margin: 0 0 12px;
+  font-size: 17px;
+  line-height: 1.2;
 }
 
 .lijngrafiek {
@@ -729,7 +838,9 @@ button:disabled {
 
 .rotatieblok h2 {
   color: black;
-  margin-top: 0;
+  margin: 0 0 12px;
+  font-size: 17px;
+  line-height: 1.2;
 }
 
 .rotatiekaart {
@@ -746,7 +857,9 @@ button:disabled {
 
 .rotatiekaart h3 {
   color: black;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.25;
 }
 
 .rotatietabel {
@@ -938,9 +1051,17 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .kleurcode-grenzen {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
   .vaste-banner .kleurcode-kaart {
     min-width: 0;
     flex-basis: 100%;
+  }
+
+  .project-kaart {
+    grid-template-columns: 1fr;
   }
 }
 button,

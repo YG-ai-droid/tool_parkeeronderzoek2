@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -6,14 +7,41 @@ import {
   Popup,
   Marker,
   Tooltip,
+  useMap,
 } from "react-leaflet";
 import KlikbareKaart from "./KlikbareKaart";
 import { berekenCentrum, maakMiniTaartIcon } from "./KaartHelpers";
+
+function ZoomNaarProjectZones({ zones, actiefProjectId }) {
+  const map = useMap();
+  const vorigProjectIdRef = useRef(null);
+
+  useEffect(() => {
+    if (vorigProjectIdRef.current === actiefProjectId) return;
+
+    vorigProjectIdRef.current = actiefProjectId;
+
+    const punten = zones
+      .filter((zone) => zone.polygoon.length >= 3)
+      .flatMap((zone) => zone.polygoon);
+
+    if (punten.length === 0) return;
+
+    map.fitBounds(punten, {
+      padding: [30, 30],
+      maxZoom: 17,
+      animate: true,
+    });
+  }, [actiefProjectId, map, zones]);
+
+  return null;
+}
 
 function ParkeerKaart({
   zones,
   clusters,
   telmomenten,
+  actiefProjectId,
   actiefTelmoment,
   actieveZoneId,
   actiefClusterId,
@@ -69,6 +97,11 @@ function ParkeerKaart({
         className="kaart"
         doubleClickZoom={false}
       >
+        <ZoomNaarProjectZones
+          zones={zones}
+          actiefProjectId={actiefProjectId}
+        />
+
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Standaardkaart">
             <TileLayer

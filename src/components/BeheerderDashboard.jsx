@@ -45,6 +45,7 @@ function BeheerderDashboard({
   toggleBewerkmodus,
   wisPolygoon,
   verwijderZone,
+  wijzigZoneNaam,
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -88,6 +89,7 @@ function BeheerderDashboard({
         toggleBewerkmodus={toggleBewerkmodus}
         wisPolygoon={wisPolygoon}
         verwijderZone={verwijderZone}
+        wijzigZoneNaam={wijzigZoneNaam}
         bewerkmodusZoneId={bewerkmodusZoneId}
         wijzigInvoer={wijzigInvoer}
         voegNummerplaatToe={voegNummerplaatToe}

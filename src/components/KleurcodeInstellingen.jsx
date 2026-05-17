@@ -5,9 +5,42 @@ function KleurcodeInstellingen({
   pasGroenGrensAan,
   pasOranjeGrensAan,
 }) {
+  function bereikLabel(van, totEnMet) {
+    if (van > totEnMet) return "geen bereik";
+    return `${van} t/m ${totEnMet}%`;
+  }
+
+  function grensPositie(waarde) {
+    return `calc(9px + (${waarde} * (100% - 18px) / 100))`;
+  }
+
   return (
     <div className="statusbalk kleurcode-kaart">
       <strong>Kleurcodes instellen</strong>
+
+      <div className="kleurcode-grenzen">
+        <span>
+          <i style={{ background: KLEUREN.lichtgrijs }} />
+          Lichtgrijs: {bereikLabel(0, kleurGrenzen.lichtgrijsTot - 1)}
+        </span>
+        <span>
+          <i style={{ background: KLEUREN.groen }} />
+          Groen:{" "}
+          {bereikLabel(
+            kleurGrenzen.lichtgrijsTot,
+            kleurGrenzen.groenTot - 1
+          )}
+        </span>
+        <span>
+          <i style={{ background: KLEUREN.oranje }} />
+          Oranje:{" "}
+          {bereikLabel(kleurGrenzen.groenTot, kleurGrenzen.oranjeTot - 1)}
+        </span>
+        <span>
+          <i style={{ background: KLEUREN.rood }} />
+          Rood: {kleurGrenzen.oranjeTot} t/m 100%
+        </span>
+      </div>
 
       <div className="kleur-slider-container">
         <div
@@ -29,21 +62,21 @@ function KleurcodeInstellingen({
 
         <div
           className="kleur-label"
-          style={{ left: `${kleurGrenzen.lichtgrijsTot}%` }}
+          style={{ left: grensPositie(kleurGrenzen.lichtgrijsTot) }}
         >
           {kleurGrenzen.lichtgrijsTot}%
         </div>
 
         <div
           className="kleur-label"
-          style={{ left: `${kleurGrenzen.groenTot}%` }}
+          style={{ left: grensPositie(kleurGrenzen.groenTot) }}
         >
           {kleurGrenzen.groenTot}%
         </div>
 
         <div
           className="kleur-label"
-          style={{ left: `${kleurGrenzen.oranjeTot}%` }}
+          style={{ left: grensPositie(kleurGrenzen.oranjeTot) }}
         >
           {kleurGrenzen.oranjeTot}%
         </div>
@@ -52,7 +85,7 @@ function KleurcodeInstellingen({
           className="kleur-range"
           type="range"
           min="0"
-          max="98"
+          max="100"
           value={kleurGrenzen.lichtgrijsTot}
           onChange={(e) => pasLichtgrijsGrensAan(e.target.value)}
         />
@@ -60,8 +93,8 @@ function KleurcodeInstellingen({
         <input
           className="kleur-range"
           type="range"
-          min="1"
-          max="99"
+          min="0"
+          max="100"
           value={kleurGrenzen.groenTot}
           onChange={(e) => pasGroenGrensAan(e.target.value)}
         />
@@ -69,7 +102,7 @@ function KleurcodeInstellingen({
         <input
           className="kleur-range"
           type="range"
-          min="2"
+          min="0"
           max="100"
           value={kleurGrenzen.oranjeTot}
           onChange={(e) => pasOranjeGrensAan(e.target.value)}

@@ -18,6 +18,7 @@ function ZoneLijst({
   toggleBewerkmodus,
   wisPolygoon,
   verwijderZone,
+  wijzigZoneNaam,
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -95,7 +96,11 @@ function ZoneLijst({
                 )}
 
                 {isBeheerder && (
-                  <div className="knoppenrij">
+                  <div className="knoppenrij beheer-zone-acties">
+                    <button onClick={() => wijzigZoneNaam(zone.id)}>
+                      Hernoem zone
+                    </button>
+
                     <button
                       onClick={() => {
                         setBewerkmodusZoneId(null);

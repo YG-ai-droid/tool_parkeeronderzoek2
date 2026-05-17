@@ -24,6 +24,7 @@ function ZonesBeheer({
   toggleBewerkmodus,
   wisPolygoon,
   verwijderZone,
+  wijzigZoneNaam,
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -70,6 +71,7 @@ function ZonesBeheer({
         toggleBewerkmodus={toggleBewerkmodus}
         wisPolygoon={wisPolygoon}
         verwijderZone={verwijderZone}
+        wijzigZoneNaam={wijzigZoneNaam}
         bewerkmodusZoneId={bewerkmodusZoneId}
         wijzigInvoer={wijzigInvoer}
         voegNummerplaatToe={voegNummerplaatToe}

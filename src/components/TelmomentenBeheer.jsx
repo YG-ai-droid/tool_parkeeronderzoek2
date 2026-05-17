@@ -10,8 +10,8 @@ function TelmomentenBeheer({
   verwijderTelmoment,
 }) {
   return (
-    <div className="statusbalk">
-      <strong>Telmomenten beheren</strong>
+    <div className="statusbalk beheer-zones-blok">
+      <h2>Telmomenten beheren</h2>
 
       <div className="nieuwe-zone telmoment-formulier">
         <input

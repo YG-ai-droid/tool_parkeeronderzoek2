@@ -25,77 +25,83 @@ function AnalistDashboard({
 }) {
   return (
     <>
-      <div className="taart-grid taart-grid-overzicht">
-        <Taartdiagram
-          titel="Totale bezettingsgraad"
-          subtitel="Alle zones samen"
-          percentage={totaleBezettingsgraad}
-          kleur={bepaalKaartKleur(totaleBezettingsgraad)}
-          middenTekst={`${totaalVoertuigenActiefTelmoment}/${totaleCapaciteit}`}
-        />
+      <section className="analyse-kader">
+        <h2 className="analyse-kader-titel">Zoneanalyse</h2>
 
-        <VerdelingTaartdiagram
-          titel="Verdeling gebruikte plaatsen per zone"
-          data={verdelingPerZone}
+        <div className="taart-grid taart-grid-overzicht">
+          <Taartdiagram
+            titel="Totale bezettingsgraad"
+            subtitel="Alle zones samen"
+            percentage={totaleBezettingsgraad}
+            kleur={bepaalKaartKleur(totaleBezettingsgraad)}
+            middenTekst={`${totaalVoertuigenActiefTelmoment}/${totaleCapaciteit}`}
+          />
+
+          <VerdelingTaartdiagram
+            titel="Verdeling gebruikte plaatsen per zone"
+            data={verdelingPerZone}
+            grafiekKleuren={grafiekKleuren}
+          />
+        </div>
+
+        <div className="taart-grid taart-grid-zones">
+          {zones.map((zone) => {
+            const aantal = krijgNummerplaten(zone).length;
+            const bezettingsgraad =
+              zone.capaciteit > 0
+                ? Math.round((aantal / zone.capaciteit) * 100)
+                : 0;
+
+            return (
+              <Taartdiagram
+                key={zone.id}
+                titel={zone.naam}
+                subtitel={`Capaciteit: ${zone.capaciteit}`}
+                percentage={bezettingsgraad}
+                kleur={bepaalKaartKleur(bezettingsgraad)}
+                middenTekst={`${aantal}/${zone.capaciteit}`}
+              />
+            );
+          })}
+        </div>
+
+        <div className="statusbalk">
+          <strong>Zones in lijngrafiek</strong>
+
+          <div className="zone-checkboxes">
+            {zones.map((zone) => (
+              <label key={zone.id}>
+                <input
+                  type="checkbox"
+                  checked={geselecteerdeAnalistZones.includes(zone.id)}
+                  onChange={() => toggleAnalistZone(zone.id)}
+                />
+                {zone.naam}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <Lijngrafiek
+          zones={zones}
+          telmomenten={telmomenten}
+          geselecteerdeZoneIds={geselecteerdeAnalistZones}
+          krijgNummerplaten={krijgNummerplaten}
           grafiekKleuren={grafiekKleuren}
         />
-      </div>
 
-      <div className="taart-grid taart-grid-zones">
-        {zones.map((zone) => {
-          const aantal = krijgNummerplaten(zone).length;
-          const bezettingsgraad =
-            zone.capaciteit > 0
-              ? Math.round((aantal / zone.capaciteit) * 100)
-              : 0;
-
-          return (
-            <Taartdiagram
-              key={zone.id}
-              titel={zone.naam}
-              subtitel={`Capaciteit: ${zone.capaciteit}`}
-              percentage={bezettingsgraad}
-              kleur={bepaalKaartKleur(bezettingsgraad)}
-              middenTekst={`${aantal}/${zone.capaciteit}`}
-            />
-          );
-        })}
-      </div>
-
-      <div className="statusbalk">
-        <strong>Zones in lijngrafiek</strong>
-
-        <div className="zone-checkboxes">
-          {zones.map((zone) => (
-            <label key={zone.id}>
-              <input
-                type="checkbox"
-                checked={geselecteerdeAnalistZones.includes(zone.id)}
-                onChange={() => toggleAnalistZone(zone.id)}
-              />
-              {zone.naam}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <Lijngrafiek
-        zones={zones}
-        telmomenten={telmomenten}
-        geselecteerdeZoneIds={geselecteerdeAnalistZones}
-        krijgNummerplaten={krijgNummerplaten}
-        grafiekKleuren={grafiekKleuren}
-      />
-
-      <RotatieAnalyse
-        zones={zones}
-        telmomenten={telmomenten}
-        krijgNummerplaten={krijgNummerplaten}
-        kleurGrenzen={kleurGrenzen}
-      />
+        <RotatieAnalyse
+          zones={zones}
+          telmomenten={telmomenten}
+          krijgNummerplaten={krijgNummerplaten}
+          kleurGrenzen={kleurGrenzen}
+        />
+      </section>
 
       {clusters.length > 0 && (
-        <>
+        <section className="analyse-kader analyse-kader-clusters">
+          <h2 className="analyse-kader-titel">Clusteranalyse</h2>
+
           <div className="statusbalk">
             <strong>Clusteranalyse huidig telmoment</strong>
             <br />
@@ -159,7 +165,7 @@ function AnalistDashboard({
             leegLabel="deze cluster"
             onSelectItem={selecteerCluster}
           />
-        </>
+        </section>
       )}
     </>
   );

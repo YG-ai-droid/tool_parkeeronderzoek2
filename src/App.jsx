@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
@@ -35,44 +35,186 @@ const grafiekKleuren = [
   "#854d0e",
 ];
 
+const standaardKleurGrenzen = {
+  lichtgrijsTot: 40,
+  groenTot: 70,
+  oranjeTot: 85,
+};
+
+const standaardTelmomenten = [
+  {
+    id: 1,
+    naam: "Telmoment 1",
+    datum: "",
+    tijdstip: "09:00",
+  },
+];
+
+const standaardZones = [
+  {
+    id: 1,
+    naam: "Kerkstraat",
+    capaciteit: 20,
+    invoer: "",
+    polygoon: [],
+    tellingen: {
+      1: [],
+    },
+  },
+];
+
+function normaliseerZones(zones) {
+  return zones.map((zone) => {
+    if (zone.tellingen) return { ...zone, invoer: zone.invoer || "" };
+
+    return {
+      ...zone,
+      tellingen: {
+        1: zone.nummerplaten || [],
+      },
+      invoer: "",
+    };
+  });
+}
+
+function normaliseerTelmomenten(telmomenten) {
+  return telmomenten.map((telmoment) => ({
+    ...telmoment,
+    datum: telmoment.datum || "",
+  }));
+}
+
+function leesJsonSleutel(sleutel, standaardWaarde) {
+  const waarde = localStorage.getItem(sleutel);
+  if (!waarde) return standaardWaarde;
+
+  try {
+    return JSON.parse(waarde);
+  } catch {
+    return standaardWaarde;
+  }
+}
+
+function maakLeegProjectData() {
+  return {
+    kleurGrenzen: standaardKleurGrenzen,
+    telmomenten: standaardTelmomenten,
+    actiefTelmomentId: 1,
+    zones: standaardZones,
+    actieveZoneId: 1,
+    clusters: [],
+    actiefClusterId: null,
+    openClusterId: null,
+    geselecteerdeAnalistZones: standaardZones.map((zone) => zone.id),
+    geselecteerdeAnalistClusters: [],
+  };
+}
+
+function normaliseerProjectData(data) {
+  const zones = normaliseerZones(data?.zones || standaardZones);
+  const clusters = data?.clusters || [];
+  const telmomenten = normaliseerTelmomenten(
+    data?.telmomenten || standaardTelmomenten
+  );
+
+  return {
+    kleurGrenzen: data?.kleurGrenzen || standaardKleurGrenzen,
+    telmomenten,
+    actiefTelmomentId: data?.actiefTelmomentId || telmomenten[0]?.id || null,
+    zones,
+    actieveZoneId: data?.actieveZoneId || zones[0]?.id || null,
+    clusters,
+    actiefClusterId: data?.actiefClusterId || null,
+    openClusterId: data?.openClusterId || null,
+    geselecteerdeAnalistZones:
+      data?.geselecteerdeAnalistZones || zones.map((zone) => zone.id),
+    geselecteerdeAnalistClusters:
+      data?.geselecteerdeAnalistClusters ||
+      clusters.map((cluster) => cluster.id),
+  };
+}
+
+function leesLegacyProjectData() {
+  const data = {
+    kleurGrenzen: leesJsonSleutel("kleurGrenzen", standaardKleurGrenzen),
+    telmomenten: leesJsonSleutel("telmomenten", standaardTelmomenten),
+    actiefTelmomentId: Number(localStorage.getItem("actiefTelmomentId")) || 1,
+    zones: leesJsonSleutel("parkeerZones", standaardZones),
+    actieveZoneId: Number(localStorage.getItem("actieveZoneId")) || 1,
+    clusters: leesJsonSleutel("parkeerClusters", []),
+    actiefClusterId: Number(localStorage.getItem("actiefClusterId")) || null,
+    openClusterId: Number(localStorage.getItem("openClusterId")) || null,
+    geselecteerdeAnalistZones: leesJsonSleutel(
+      "geselecteerdeAnalistZones",
+      null
+    ),
+    geselecteerdeAnalistClusters: leesJsonSleutel(
+      "geselecteerdeAnalistClusters",
+      null
+    ),
+  };
+
+  return normaliseerProjectData(data);
+}
+
+function maakNieuwProject(naam, data = maakLeegProjectData()) {
+  return {
+    id: Date.now(),
+    naam,
+    aangemaaktOp: new Date().toISOString(),
+    data: normaliseerProjectData(data),
+  };
+}
+
+function leesProjecten() {
+  const bewaardeProjecten = leesJsonSleutel("parkeerProjecten", null);
+  if (bewaardeProjecten?.length > 0) {
+    return bewaardeProjecten.map((project) => ({
+      ...project,
+      data: normaliseerProjectData(project.data),
+    }));
+  }
+
+  return [
+    {
+      id: 1,
+      naam: "Project 1",
+      aangemaaktOp: new Date().toISOString(),
+      data: leesLegacyProjectData(),
+    },
+  ];
+}
+
 function App() {
   const [rol, setRol] = useState("beheerder");
   const [toonKaartTaarten, setToonKaartTaarten] = useState(true);
+  const [projecten, setProjecten] = useState(leesProjecten);
+  const [actiefProjectId, setActiefProjectId] = useState(() => {
+    const bewaardProjectId = Number(localStorage.getItem("actiefProjectId"));
+    const beschikbareProjecten = leesProjecten();
+
+    return (
+      beschikbareProjecten.find((project) => project.id === bewaardProjectId)
+        ?.id || beschikbareProjecten[0].id
+    );
+  });
+  const [nieuweProjectNaam, setNieuweProjectNaam] = useState("");
+  const projectLadenRef = useRef(false);
+  const actiefProject =
+    projecten.find((project) => project.id === actiefProjectId) ||
+    projecten[0];
+  const eersteProjectData = actiefProject.data;
 
   const [kleurGrenzen, setKleurGrenzen] = useState(() => {
-    const bewaardeGrenzen = localStorage.getItem("kleurGrenzen");
-    if (bewaardeGrenzen) return JSON.parse(bewaardeGrenzen);
-
-    return {
-      lichtgrijsTot: 40,
-      groenTot: 70,
-      oranjeTot: 85,
-    };
+    return eersteProjectData.kleurGrenzen;
   });
 
   const [telmomenten, setTelmomenten] = useState(() => {
-    const bewaardeTelmomenten = localStorage.getItem("telmomenten");
-
-    if (bewaardeTelmomenten) {
-      return JSON.parse(bewaardeTelmomenten).map((telmoment) => ({
-        ...telmoment,
-        datum: telmoment.datum || "",
-      }));
-    }
-
-    return [
-      {
-        id: 1,
-        naam: "Telmoment 1",
-        datum: "",
-        tijdstip: "09:00",
-      },
-    ];
+    return eersteProjectData.telmomenten;
   });
 
   const [actiefTelmomentId, setActiefTelmomentId] = useState(() => {
-    const bewaardTelmoment = localStorage.getItem("actiefTelmomentId");
-    return bewaardTelmoment ? Number(bewaardTelmoment) : 1;
+    return eersteProjectData.actiefTelmomentId;
   });
 
   const [nieuwTelmomentNaam, setNieuwTelmomentNaam] = useState("");
@@ -80,145 +222,132 @@ function App() {
   const [nieuwTelmomentTijdstip, setNieuwTelmomentTijdstip] = useState("");
 
   const [zones, setZones] = useState(() => {
-    const bewaardeZones = localStorage.getItem("parkeerZones");
-
-    if (bewaardeZones) {
-      const parsedZones = JSON.parse(bewaardeZones);
-
-      return parsedZones.map((zone) => {
-        if (zone.tellingen) return zone;
-
-        return {
-          ...zone,
-          tellingen: {
-            1: zone.nummerplaten || [],
-          },
-          invoer: "",
-        };
-      });
-    }
-
-    return [
-      {
-        id: 1,
-        naam: "Kerkstraat",
-        capaciteit: 20,
-        invoer: "",
-        polygoon: [],
-        tellingen: {
-          1: [],
-        },
-      },
-    ];
+    return eersteProjectData.zones;
   });
 
   const [actieveZoneId, setActieveZoneId] = useState(() => {
-    const bewaardeActieveZone = localStorage.getItem("actieveZoneId");
-    return bewaardeActieveZone ? Number(bewaardeActieveZone) : 1;
+    return eersteProjectData.actieveZoneId;
   });
 
   const [clusters, setClusters] = useState(() => {
-    const bewaardeClusters = localStorage.getItem("parkeerClusters");
-    return bewaardeClusters ? JSON.parse(bewaardeClusters) : [];
+    return eersteProjectData.clusters;
   });
 
   const [actiefClusterId, setActiefClusterId] = useState(() => {
-    const bewaardCluster = localStorage.getItem("actiefClusterId");
-    return bewaardCluster ? Number(bewaardCluster) : null;
+    return eersteProjectData.actiefClusterId;
   });
 
   const [openClusterId, setOpenClusterId] = useState(() => {
-    const bewaardeOpenCluster = localStorage.getItem("openClusterId");
-    return bewaardeOpenCluster ? Number(bewaardeOpenCluster) : null;
+    return eersteProjectData.openClusterId;
   });
 
   const [geselecteerdeAnalistZones, setGeselecteerdeAnalistZones] = useState(
     () => {
-      const bewaardeSelectie = localStorage.getItem(
-        "geselecteerdeAnalistZones"
-      );
-
-      return bewaardeSelectie
-        ? JSON.parse(bewaardeSelectie)
-        : zones.map((zone) => zone.id);
+      return eersteProjectData.geselecteerdeAnalistZones;
     }
   );
 
   const [geselecteerdeAnalistClusters, setGeselecteerdeAnalistClusters] =
     useState(() => {
-      const bewaardeSelectie = localStorage.getItem(
-        "geselecteerdeAnalistClusters"
-      );
-
-      return bewaardeSelectie
-        ? JSON.parse(bewaardeSelectie)
-        : clusters.map((cluster) => cluster.id);
+      return eersteProjectData.geselecteerdeAnalistClusters;
     });
 
   const [nieuweClusterNaam, setNieuweClusterNaam] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem("parkeerClusters", JSON.stringify(clusters));
-  }, [clusters]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "geselecteerdeAnalistClusters",
-      JSON.stringify(geselecteerdeAnalistClusters)
-    );
-  }, [geselecteerdeAnalistClusters]);
-
-  useEffect(() => {
-    if (actiefClusterId !== null) {
-      localStorage.setItem("actiefClusterId", actiefClusterId);
-    } else {
-      localStorage.removeItem("actiefClusterId");
-    }
-  }, [actiefClusterId]);
-
-  useEffect(() => {
-    if (openClusterId !== null) {
-      localStorage.setItem("openClusterId", openClusterId);
-    } else {
-      localStorage.removeItem("openClusterId");
-    }
-  }, [openClusterId]);
 
   const [nieuweZoneNaam, setNieuweZoneNaam] = useState("");
   const [nieuweCapaciteit, setNieuweCapaciteit] = useState("");
   const [tekenmodus, setTekenmodus] = useState(false);
   const [bewerkmodusZoneId, setBewerkmodusZoneId] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem("parkeerZones", JSON.stringify(zones));
-  }, [zones]);
+  const maakActieveProjectData = useCallback(function maakActieveProjectData() {
+    return normaliseerProjectData({
+      kleurGrenzen,
+      telmomenten,
+      actiefTelmomentId,
+      zones,
+      actieveZoneId,
+      clusters,
+      actiefClusterId,
+      openClusterId,
+      geselecteerdeAnalistZones,
+      geselecteerdeAnalistClusters,
+    });
+  }, [
+    kleurGrenzen,
+    telmomenten,
+    actiefTelmomentId,
+    zones,
+    actieveZoneId,
+    clusters,
+    actiefClusterId,
+    openClusterId,
+    geselecteerdeAnalistZones,
+    geselecteerdeAnalistClusters,
+  ]);
 
-  useEffect(() => {
-    localStorage.setItem("telmomenten", JSON.stringify(telmomenten));
-  }, [telmomenten]);
+  function laadProjectData(data) {
+    const projectData = normaliseerProjectData(data);
 
-  useEffect(() => {
-    localStorage.setItem("kleurGrenzen", JSON.stringify(kleurGrenzen));
-  }, [kleurGrenzen]);
+    projectLadenRef.current = true;
+    setKleurGrenzen(projectData.kleurGrenzen);
+    setTelmomenten(projectData.telmomenten);
+    setActiefTelmomentId(projectData.actiefTelmomentId);
+    setZones(projectData.zones);
+    setActieveZoneId(projectData.actieveZoneId);
+    setClusters(projectData.clusters);
+    setActiefClusterId(projectData.actiefClusterId);
+    setOpenClusterId(projectData.openClusterId);
+    setGeselecteerdeAnalistZones(projectData.geselecteerdeAnalistZones);
+    setGeselecteerdeAnalistClusters(projectData.geselecteerdeAnalistClusters);
+    setNieuweZoneNaam("");
+    setNieuweCapaciteit("");
+    setNieuweClusterNaam("");
+    setTekenmodus(false);
+    setBewerkmodusZoneId(null);
+  }
 
-  useEffect(() => {
-    localStorage.setItem(
-      "geselecteerdeAnalistZones",
-      JSON.stringify(geselecteerdeAnalistZones)
+  function bewaarActiefProject(projectenLijst = projecten) {
+    const data = maakActieveProjectData();
+
+    return projectenLijst.map((project) =>
+      project.id === actiefProjectId ? { ...project, data } : project
     );
-  }, [geselecteerdeAnalistZones]);
+  }
 
   useEffect(() => {
-    if (actieveZoneId !== null) {
-      localStorage.setItem("actieveZoneId", actieveZoneId);
-    }
-  }, [actieveZoneId]);
+    localStorage.setItem("actiefProjectId", actiefProjectId);
+  }, [actiefProjectId]);
 
   useEffect(() => {
-    if (actiefTelmomentId !== null) {
-      localStorage.setItem("actiefTelmomentId", actiefTelmomentId);
+    if (projectLadenRef.current) {
+      projectLadenRef.current = false;
     }
-  }, [actiefTelmomentId]);
+
+    const bijgewerkteProjecten = projecten.map((project) =>
+        project.id === actiefProjectId
+          ? { ...project, data: maakActieveProjectData() }
+          : project
+    );
+
+    localStorage.setItem(
+      "parkeerProjecten",
+      JSON.stringify(bijgewerkteProjecten)
+    );
+  }, [
+    projecten,
+    kleurGrenzen,
+    telmomenten,
+    actiefTelmomentId,
+    zones,
+    actieveZoneId,
+    clusters,
+    actiefClusterId,
+    openClusterId,
+    geselecteerdeAnalistZones,
+    geselecteerdeAnalistClusters,
+    actiefProjectId,
+    maakActieveProjectData,
+  ]);
 
   const actiefTelmoment = telmomenten.find(
     (telmoment) => telmoment.id === actiefTelmomentId
@@ -227,6 +356,62 @@ function App() {
   const isBeheerder = rol === "beheerder";
   const isInvuller = rol === "invuller";
   const isAnalist = rol === "analist";
+
+  function wisselProject(projectId) {
+    if (projectId === actiefProjectId) return;
+
+    const volgendProject = projecten.find((project) => project.id === projectId);
+    if (!volgendProject) return;
+
+    setProjecten(bewaarActiefProject());
+    setActiefProjectId(projectId);
+    laadProjectData(volgendProject.data);
+  }
+
+  function voegProjectToe() {
+    const naam =
+      nieuweProjectNaam.trim() || `Project ${projecten.length + 1}`;
+    const nieuwProject = maakNieuwProject(naam);
+    const bijgewerkteProjecten = [...bewaarActiefProject(), nieuwProject];
+
+    setProjecten(bijgewerkteProjecten);
+    setActiefProjectId(nieuwProject.id);
+    laadProjectData(nieuwProject.data);
+    setNieuweProjectNaam("");
+  }
+
+  function hernoemProject() {
+    const naam = nieuweProjectNaam.trim();
+    if (naam === "") return;
+
+    setProjecten(
+      projecten.map((project) =>
+        project.id === actiefProjectId ? { ...project, naam } : project
+      )
+    );
+    setNieuweProjectNaam("");
+  }
+
+  function verwijderProject() {
+    if (projecten.length <= 1) {
+      alert("Je hebt minstens één project nodig.");
+      return;
+    }
+
+    const zeker = confirm(
+      `Ben je zeker dat je project "${actiefProject.naam}" wil verwijderen?`
+    );
+    if (!zeker) return;
+
+    const resterendeProjecten = projecten.filter(
+      (project) => project.id !== actiefProjectId
+    );
+    const volgendProject = resterendeProjecten[0];
+
+    setProjecten(resterendeProjecten);
+    setActiefProjectId(volgendProject.id);
+    laadProjectData(volgendProject.data);
+  }
 
   function wijzigRol(nieuweRol) {
     setRol(nieuweRol);
@@ -331,7 +516,7 @@ function App() {
   }
 
   function pasLichtgrijsGrensAan(waarde) {
-    const lichtgrijsTot = Number(waarde);
+    const lichtgrijsTot = Math.min(Number(waarde), 98);
 
     setKleurGrenzen((vorige) => {
       const groenTot = Math.max(vorige.groenTot, lichtgrijsTot + 1);
@@ -349,12 +534,15 @@ function App() {
     const groenTot = Number(waarde);
 
     setKleurGrenzen((vorige) => {
-      const nieuweGroenTot = Math.max(groenTot, vorige.lichtgrijsTot + 1);
+      const nieuweGroenTot = Math.min(
+        Math.max(groenTot, vorige.lichtgrijsTot + 1),
+        99
+      );
       const oranjeTot = Math.max(vorige.oranjeTot, nieuweGroenTot + 1);
 
       return {
         ...vorige,
-        groenTot: Math.min(nieuweGroenTot, 99),
+        groenTot: nieuweGroenTot,
         oranjeTot: Math.min(oranjeTot, 100),
       };
     });
@@ -365,7 +553,7 @@ function App() {
 
     setKleurGrenzen((vorige) => ({
       ...vorige,
-      oranjeTot: Math.max(oranjeTot, vorige.groenTot + 1),
+      oranjeTot: Math.min(Math.max(oranjeTot, vorige.groenTot + 1), 100),
     }));
   }
 
@@ -717,17 +905,39 @@ function App() {
     if (bewerkmodusZoneId === zoneId) setBewerkmodusZoneId(null);
   }
 
+  function wijzigZoneNaam(zoneId) {
+    if (!isBeheerder) return;
+
+    const zone = zones.find((huidigeZone) => huidigeZone.id === zoneId);
+    if (!zone) return;
+
+    const nieuweNaam = prompt("Nieuwe naam voor deze zone:", zone.naam);
+    if (nieuweNaam === null || nieuweNaam.trim() === "") return;
+
+    setZones(
+      zones.map((huidigeZone) =>
+        huidigeZone.id === zoneId
+          ? { ...huidigeZone, naam: nieuweNaam.trim() }
+          : huidigeZone
+      )
+    );
+  }
+
   function downloadBackup() {
     if (!isBeheerder) return;
 
     const backup = {
       gemaaktOp: new Date().toISOString(),
+      projectNaam: actiefProject.naam,
       telmomenten,
       zones,
       clusters,
       actiefTelmomentId,
       actieveZoneId,
       actiefClusterId,
+      openClusterId,
+      geselecteerdeAnalistZones,
+      geselecteerdeAnalistClusters,
       kleurGrenzen,
     };
 
@@ -737,7 +947,9 @@ function App() {
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = "parkeeronderzoek-backup.json";
+    link.download = `parkeeronderzoek-${actiefProject.naam
+      .toLowerCase()
+      .replaceAll(" ", "-")}-backup.json`;
     link.click();
 
     URL.revokeObjectURL(url);
@@ -766,41 +978,7 @@ function App() {
 
         if (!zeker) return;
 
-        setZones(backup.zones);
-        setClusters(backup.clusters || []);
-        setTelmomenten(backup.telmomenten);
-        setActiefTelmomentId(
-          backup.actiefTelmomentId || backup.telmomenten[0]?.id || null
-        );
-        setActieveZoneId(backup.actieveZoneId || backup.zones[0]?.id || null);
-        setActiefClusterId(backup.actiefClusterId || null);
-
-        if (backup.kleurGrenzen) {
-          setKleurGrenzen(backup.kleurGrenzen);
-          localStorage.setItem(
-            "kleurGrenzen",
-            JSON.stringify(backup.kleurGrenzen)
-          );
-        }
-
-        localStorage.setItem("parkeerZones", JSON.stringify(backup.zones));
-        localStorage.setItem(
-          "parkeerClusters",
-          JSON.stringify(backup.clusters || [])
-        );
-        localStorage.setItem("telmomenten", JSON.stringify(backup.telmomenten));
-
-        if (backup.actiefTelmomentId) {
-          localStorage.setItem("actiefTelmomentId", backup.actiefTelmomentId);
-        }
-
-        if (backup.actieveZoneId) {
-          localStorage.setItem("actieveZoneId", backup.actieveZoneId);
-        }
-
-        if (backup.actiefClusterId) {
-          localStorage.setItem("actiefClusterId", backup.actiefClusterId);
-        }
+        laadProjectData(backup);
 
         alert("Back-up succesvol geïmporteerd.");
       } catch {
@@ -876,20 +1054,12 @@ function App() {
   function wisAlleGegevens() {
     if (!isBeheerder) return;
 
-    const zeker = confirm("Ben je zeker dat je alle gegevens wil wissen?");
+    const zeker = confirm(
+      `Ben je zeker dat je alle gegevens van project "${actiefProject.naam}" wil wissen?`
+    );
 
     if (zeker) {
-      localStorage.removeItem("parkeerZones");
-      localStorage.removeItem("parkeerClusters");
-      localStorage.removeItem("actieveZoneId");
-      localStorage.removeItem("actiefClusterId");
-      localStorage.removeItem("openClusterId");
-      localStorage.removeItem("telmomenten");
-      localStorage.removeItem("actiefTelmomentId");
-      localStorage.removeItem("geselecteerdeAnalistZones");
-      localStorage.removeItem("geselecteerdeAnalistClusters");
-      localStorage.removeItem("kleurGrenzen");
-      window.location.reload();
+      laadProjectData(maakLeegProjectData());
     }
   }
 
@@ -1012,6 +1182,37 @@ function App() {
         </div>
 
         <div className="banner-inhoud">
+          <div
+            className={`statusbalk project-kaart ${
+              isBeheerder ? "" : "project-kaart-compact"
+            }`}
+          >
+            <strong>Project</strong>
+            <select
+              value={actiefProjectId}
+              onChange={(e) => wisselProject(Number(e.target.value))}
+            >
+              {projecten.map((project) => (
+                <option value={project.id} key={project.id}>
+                  {project.naam}
+                </option>
+              ))}
+            </select>
+
+            {isBeheerder && (
+              <>
+                <input
+                  value={nieuweProjectNaam}
+                  onChange={(e) => setNieuweProjectNaam(e.target.value)}
+                  placeholder="Nieuwe of aangepaste projectnaam"
+                />
+                <button onClick={voegProjectToe}>Nieuw project</button>
+                <button onClick={hernoemProject}>Hernoem</button>
+                <button onClick={verwijderProject}>Verwijder</button>
+              </>
+            )}
+          </div>
+
           {isBeheerder && (
             <>
               <div className="beheer-knoppen">
@@ -1120,6 +1321,7 @@ function App() {
               toggleBewerkmodus={toggleBewerkmodus}
               wisPolygoon={wisPolygoon}
               verwijderZone={verwijderZone}
+              wijzigZoneNaam={wijzigZoneNaam}
               bewerkmodusZoneId={bewerkmodusZoneId}
               wijzigInvoer={wijzigInvoer}
               voegNummerplaatToe={voegNummerplaatToe}
@@ -1181,6 +1383,7 @@ function App() {
           zones={zones}
           clusters={clusters}
           telmomenten={telmomenten}
+          actiefProjectId={actiefProjectId}
           actiefTelmoment={actiefTelmoment}
           actieveZoneId={actieveZoneId}
           actiefClusterId={actiefClusterId}
