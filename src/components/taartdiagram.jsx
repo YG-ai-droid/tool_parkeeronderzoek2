@@ -1,8 +1,18 @@
-function Taartdiagram({ titel, subtitel, percentage, kleur, middenTekst }) {
+function Taartdiagram({
+  titel,
+  subtitel,
+  percentage,
+  kleur,
+  middenTekst,
+  onClick,
+}) {
   const veiligPercentage = Math.min(Math.max(percentage, 0), 100);
 
   return (
-    <div className="taartkaart">
+    <div
+      className={`taartkaart ${onClick ? "klikbaar" : ""}`}
+      onClick={onClick}
+    >
       <h3>{titel}</h3>
       {subtitel && <p className="taart-subtitel">{subtitel}</p>}
 

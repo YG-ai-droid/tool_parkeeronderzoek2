@@ -10,37 +10,95 @@ function RotatieAnalyse({
   telmomenten,
   krijgNummerplaten,
   kleurGrenzen,
+  titel = "Rotatieanalyse: verblijfsduur per zone",
+  leegLabel = "deze zone",
+  onSelectItem,
 }) {
+  function krijgPlaatKey(plaat) {
+    return typeof plaat === "object" ? plaat.id : plaat;
+  }
+
+  function krijgPlaatBron(plaat) {
+    if (typeof plaat !== "object") return null;
+
+    return {
+      label: plaat.label,
+      capaciteit: plaat.capaciteit,
+    };
+  }
+
   function analyseerZone(zone) {
     const nummerplaatMap = {};
 
     telmomenten.forEach((telmoment, index) => {
       krijgNummerplaten(zone, telmoment.id).forEach((plaat) => {
-        if (!nummerplaatMap[plaat]) {
-          nummerplaatMap[plaat] = {
-            eersteIndex: index,
-            laatsteIndex: index,
-          };
-        } else {
-          nummerplaatMap[plaat].laatsteIndex = index;
-        }
+        const sleutel = krijgPlaatKey(plaat);
+        const bron = krijgPlaatBron(plaat);
+
+        if (!nummerplaatMap[sleutel]) nummerplaatMap[sleutel] = [];
+        nummerplaatMap[sleutel].push({ index, bron });
       });
     });
 
     const groepen = {};
 
-    Object.values(nummerplaatMap).forEach((voertuig) => {
-      const sleutel = `${voertuig.eersteIndex}-${voertuig.laatsteIndex}`;
+    Object.values(nummerplaatMap).forEach((registraties) => {
+      const gesorteerdeRegistraties = registraties.sort(
+        (a, b) => a.index - b.index
+      );
 
-      if (!groepen[sleutel]) {
-        groepen[sleutel] = {
-          eersteIndex: voertuig.eersteIndex,
-          laatsteIndex: voertuig.laatsteIndex,
-          aantal: 0,
-        };
+      let reeks = null;
+
+      function voegReeksToe() {
+        if (!reeks) return;
+
+        const sleutel = `${reeks.eersteIndex}-${reeks.laatsteIndex}`;
+
+        if (!groepen[sleutel]) {
+          groepen[sleutel] = {
+            eersteIndex: reeks.eersteIndex,
+            laatsteIndex: reeks.laatsteIndex,
+            aantal: 0,
+            bronnen: {},
+          };
+        }
+
+        groepen[sleutel].aantal += 1;
+
+        if (reeks.bron) {
+          const bronSleutel = `${reeks.bron.label}-${reeks.bron.capaciteit}`;
+          groepen[sleutel].bronnen[bronSleutel] = {
+            label: reeks.bron.label,
+            capaciteit: reeks.bron.capaciteit,
+            aantal: (groepen[sleutel].bronnen[bronSleutel]?.aantal || 0) + 1,
+          };
+        }
       }
 
-      groepen[sleutel].aantal += 1;
+      gesorteerdeRegistraties.forEach((registratie) => {
+        if (!reeks) {
+          reeks = {
+            eersteIndex: registratie.index,
+            laatsteIndex: registratie.index,
+            bron: registratie.bron,
+          };
+          return;
+        }
+
+        if (registratie.index === reeks.laatsteIndex + 1) {
+          reeks.laatsteIndex = registratie.index;
+          return;
+        }
+
+        voegReeksToe();
+        reeks = {
+          eersteIndex: registratie.index,
+          laatsteIndex: registratie.index,
+          bron: registratie.bron,
+        };
+      });
+
+      voegReeksToe();
     });
 
     return Object.values(groepen).sort((a, b) => {
@@ -53,22 +111,33 @@ function RotatieAnalyse({
     return `som-${bepaalKleurNaam(bezettingsgraad, kleurGrenzen)}`;
   }
 
+  function groepTooltip(groep) {
+    const bronnen = Object.values(groep.bronnen || {});
+    if (bronnen.length === 0) return [];
+
+    return bronnen;
+  }
+
   return (
     <div className="rotatieblok">
-      <h2>Rotatieanalyse: verblijfsduur per zone</h2>
+      <h2>{titel}</h2>
 
       {zones.map((zone) => {
         const groepen = analyseerZone(zone);
 
         return (
-          <div className="rotatiekaart" key={zone.id}>
+          <div
+            className="rotatiekaart"
+            key={zone.id}
+            onClick={() => onSelectItem?.(zone.id)}
+          >
             <h3>
               {zone.naam} — capaciteit: {zone.capaciteit}
             </h3>
 
             {groepen.length === 0 ? (
               <p className="lege-lijst">
-                Geen nummerplaten geregistreerd in deze zone.
+                Geen nummerplaten geregistreerd in {leegLabel}.
               </p>
             ) : (
               <div className="verblijfsduur-wrapper">
@@ -110,6 +179,17 @@ function RotatieAnalyse({
                         }}
                       >
                         {groep.aantal}
+                        {groepTooltip(groep).length > 0 && (
+                          <div className="rotatie-popup">
+                            {groepTooltip(groep).map((bron) => (
+                              <div className="rotatie-popup-regel" key={bron.label}>
+                                <strong>{bron.label}</strong>
+                                <span>Capaciteit: {bron.capaciteit}</span>
+                                <span>Aantal: {bron.aantal}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

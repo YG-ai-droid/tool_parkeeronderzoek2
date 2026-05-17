@@ -7,6 +7,7 @@ import BeheerderDashboard from "./components/BeheerderDashboard";
 import AnalistDashboard from "./components/AnalistDashboard";
 import InvullerDashboard from "./components/InvullerDashboard";
 import ParkeerKaart from "./components/ParkeerKaart";
+import KleurcodeInstellingen from "./components/KleurcodeInstellingen";
 
 const puntIcon = L.divIcon({
   className: "polygoon-punt",
@@ -116,15 +117,72 @@ function App() {
     return bewaardeActieveZone ? Number(bewaardeActieveZone) : 1;
   });
 
+  const [clusters, setClusters] = useState(() => {
+    const bewaardeClusters = localStorage.getItem("parkeerClusters");
+    return bewaardeClusters ? JSON.parse(bewaardeClusters) : [];
+  });
+
+  const [actiefClusterId, setActiefClusterId] = useState(() => {
+    const bewaardCluster = localStorage.getItem("actiefClusterId");
+    return bewaardCluster ? Number(bewaardCluster) : null;
+  });
+
+  const [openClusterId, setOpenClusterId] = useState(() => {
+    const bewaardeOpenCluster = localStorage.getItem("openClusterId");
+    return bewaardeOpenCluster ? Number(bewaardeOpenCluster) : null;
+  });
+
   const [geselecteerdeAnalistZones, setGeselecteerdeAnalistZones] = useState(
     () => {
       const bewaardeSelectie = localStorage.getItem(
         "geselecteerdeAnalistZones"
       );
 
-      return bewaardeSelectie ? JSON.parse(bewaardeSelectie) : zones.map((zone) => zone.id);
+      return bewaardeSelectie
+        ? JSON.parse(bewaardeSelectie)
+        : zones.map((zone) => zone.id);
     }
   );
+
+  const [geselecteerdeAnalistClusters, setGeselecteerdeAnalistClusters] =
+    useState(() => {
+      const bewaardeSelectie = localStorage.getItem(
+        "geselecteerdeAnalistClusters"
+      );
+
+      return bewaardeSelectie
+        ? JSON.parse(bewaardeSelectie)
+        : clusters.map((cluster) => cluster.id);
+    });
+
+  const [nieuweClusterNaam, setNieuweClusterNaam] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem("parkeerClusters", JSON.stringify(clusters));
+  }, [clusters]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "geselecteerdeAnalistClusters",
+      JSON.stringify(geselecteerdeAnalistClusters)
+    );
+  }, [geselecteerdeAnalistClusters]);
+
+  useEffect(() => {
+    if (actiefClusterId !== null) {
+      localStorage.setItem("actiefClusterId", actiefClusterId);
+    } else {
+      localStorage.removeItem("actiefClusterId");
+    }
+  }, [actiefClusterId]);
+
+  useEffect(() => {
+    if (openClusterId !== null) {
+      localStorage.setItem("openClusterId", openClusterId);
+    } else {
+      localStorage.removeItem("openClusterId");
+    }
+  }, [openClusterId]);
 
   const [nieuweZoneNaam, setNieuweZoneNaam] = useState("");
   const [nieuweCapaciteit, setNieuweCapaciteit] = useState("");
@@ -162,8 +220,6 @@ function App() {
     }
   }, [actiefTelmomentId]);
 
-  const actieveZone = zones.find((zone) => zone.id === actieveZoneId);
-
   const actiefTelmoment = telmomenten.find(
     (telmoment) => telmoment.id === actiefTelmomentId
   );
@@ -183,6 +239,46 @@ function App() {
 
   function krijgNummerplaten(zone, telmomentId = actiefTelmomentId) {
     return zone.tellingen?.[telmomentId] || [];
+  }
+
+  function krijgClusterZones(cluster) {
+    return cluster.zoneIds
+      .map((zoneId) => zones.find((zone) => zone.id === zoneId))
+      .filter(Boolean);
+  }
+
+  function krijgClusterCapaciteit(cluster) {
+    return krijgClusterZones(cluster).reduce(
+      (totaal, zone) => totaal + zone.capaciteit,
+      0
+    );
+  }
+
+  function krijgClusterAantal(cluster, telmomentId = actiefTelmomentId) {
+    return krijgClusterZones(cluster).reduce(
+      (totaal, zone) => totaal + krijgNummerplaten(zone, telmomentId).length,
+      0
+    );
+  }
+
+  function krijgClusterNummerplaten(cluster, telmomentId = actiefTelmomentId) {
+    return krijgClusterZones(cluster).flatMap((zone) =>
+      krijgNummerplaten(zone, telmomentId).map((plaat) => ({
+        id: `${zone.id}-${plaat}`,
+        label: zone.naam,
+        capaciteit: zone.capaciteit,
+      }))
+    );
+  }
+
+  function krijgClusterBezettingsgraad(
+    cluster,
+    telmomentId = actiefTelmomentId
+  ) {
+    const capaciteit = krijgClusterCapaciteit(cluster);
+    if (capaciteit === 0) return 0;
+
+    return Math.round((krijgClusterAantal(cluster, telmomentId) / capaciteit) * 100);
   }
 
   function krijgVoorgesteldeNummerplaten(zone) {
@@ -346,6 +442,66 @@ function App() {
     setBewerkmodusZoneId(null);
     setNieuweZoneNaam("");
     setNieuweCapaciteit("");
+  }
+
+  function voegClusterToe() {
+    if (!isBeheerder) return;
+    if (nieuweClusterNaam.trim() === "") return;
+
+    const nieuwCluster = {
+      id: Date.now(),
+      naam: nieuweClusterNaam.trim(),
+      zoneIds: [],
+    };
+
+    setClusters([...clusters, nieuwCluster]);
+    setActiefClusterId(nieuwCluster.id);
+    setOpenClusterId(nieuwCluster.id);
+    setGeselecteerdeAnalistClusters([
+      ...geselecteerdeAnalistClusters,
+      nieuwCluster.id,
+    ]);
+    setNieuweClusterNaam("");
+  }
+
+  function selecteerCluster(clusterId) {
+    setActiefClusterId(actiefClusterId === clusterId ? null : clusterId);
+  }
+
+  function toggleClusterOpen(clusterId) {
+    setOpenClusterId(openClusterId === clusterId ? null : clusterId);
+    setActiefClusterId(clusterId);
+  }
+
+  function toggleClusterZone(clusterId, zoneId) {
+    if (!isBeheerder) return;
+
+    setClusters(
+      clusters.map((cluster) => {
+        if (cluster.id !== clusterId) return cluster;
+
+        const zoneIds = cluster.zoneIds.includes(zoneId)
+          ? cluster.zoneIds.filter((id) => id !== zoneId)
+          : [...cluster.zoneIds, zoneId];
+
+        return { ...cluster, zoneIds };
+      })
+    );
+  }
+
+  function verwijderCluster(clusterId) {
+    if (!isBeheerder) return;
+
+    const zeker = confirm("Ben je zeker dat je deze cluster wil verwijderen?");
+    if (!zeker) return;
+
+    setClusters(clusters.filter((cluster) => cluster.id !== clusterId));
+    setGeselecteerdeAnalistClusters(
+      geselecteerdeAnalistClusters.filter((id) => id !== clusterId)
+    );
+
+    if (actiefClusterId === clusterId) setActiefClusterId(null);
+    if (openClusterId === clusterId) setOpenClusterId(null);
   }
 
   function selecteerZone(zoneId) {
@@ -550,6 +706,12 @@ function App() {
 
     const nieuweZones = zones.filter((zone) => zone.id !== zoneId);
     setZones(nieuweZones);
+    setClusters(
+      clusters.map((cluster) => ({
+        ...cluster,
+        zoneIds: cluster.zoneIds.filter((id) => id !== zoneId),
+      }))
+    );
 
     if (actieveZoneId === zoneId) setActieveZoneId(nieuweZones[0]?.id || null);
     if (bewerkmodusZoneId === zoneId) setBewerkmodusZoneId(null);
@@ -562,8 +724,10 @@ function App() {
       gemaaktOp: new Date().toISOString(),
       telmomenten,
       zones,
+      clusters,
       actiefTelmomentId,
       actieveZoneId,
+      actiefClusterId,
       kleurGrenzen,
     };
 
@@ -603,11 +767,13 @@ function App() {
         if (!zeker) return;
 
         setZones(backup.zones);
+        setClusters(backup.clusters || []);
         setTelmomenten(backup.telmomenten);
         setActiefTelmomentId(
           backup.actiefTelmomentId || backup.telmomenten[0]?.id || null
         );
         setActieveZoneId(backup.actieveZoneId || backup.zones[0]?.id || null);
+        setActiefClusterId(backup.actiefClusterId || null);
 
         if (backup.kleurGrenzen) {
           setKleurGrenzen(backup.kleurGrenzen);
@@ -618,6 +784,10 @@ function App() {
         }
 
         localStorage.setItem("parkeerZones", JSON.stringify(backup.zones));
+        localStorage.setItem(
+          "parkeerClusters",
+          JSON.stringify(backup.clusters || [])
+        );
         localStorage.setItem("telmomenten", JSON.stringify(backup.telmomenten));
 
         if (backup.actiefTelmomentId) {
@@ -626,6 +796,10 @@ function App() {
 
         if (backup.actieveZoneId) {
           localStorage.setItem("actieveZoneId", backup.actieveZoneId);
+        }
+
+        if (backup.actiefClusterId) {
+          localStorage.setItem("actiefClusterId", backup.actiefClusterId);
         }
 
         alert("Back-up succesvol geïmporteerd.");
@@ -706,10 +880,14 @@ function App() {
 
     if (zeker) {
       localStorage.removeItem("parkeerZones");
+      localStorage.removeItem("parkeerClusters");
       localStorage.removeItem("actieveZoneId");
+      localStorage.removeItem("actiefClusterId");
+      localStorage.removeItem("openClusterId");
       localStorage.removeItem("telmomenten");
       localStorage.removeItem("actiefTelmomentId");
       localStorage.removeItem("geselecteerdeAnalistZones");
+      localStorage.removeItem("geselecteerdeAnalistClusters");
       localStorage.removeItem("kleurGrenzen");
       window.location.reload();
     }
@@ -722,6 +900,19 @@ function App() {
       );
     } else {
       setGeselecteerdeAnalistZones([...geselecteerdeAnalistZones, zoneId]);
+    }
+  }
+
+  function toggleAnalistCluster(clusterId) {
+    if (geselecteerdeAnalistClusters.includes(clusterId)) {
+      setGeselecteerdeAnalistClusters(
+        geselecteerdeAnalistClusters.filter((id) => id !== clusterId)
+      );
+    } else {
+      setGeselecteerdeAnalistClusters([
+        ...geselecteerdeAnalistClusters,
+        clusterId,
+      ]);
     }
   }
 
@@ -745,92 +936,147 @@ function App() {
     waarde: krijgNummerplaten(zone).length,
   }));
 
+  const clusterAnalyses = clusters.map((cluster) => {
+    const aantal = krijgClusterAantal(cluster);
+    const capaciteit = krijgClusterCapaciteit(cluster);
+
+    return {
+      ...cluster,
+      aantal,
+      capaciteit,
+      bezettingsgraad: krijgClusterBezettingsgraad(cluster),
+      zones: krijgClusterZones(cluster),
+    };
+  });
+
+  const verdelingPerCluster = clusterAnalyses.map((cluster) => ({
+    label: cluster.naam,
+    waarde: cluster.aantal,
+  }));
+
+  const telmomentSelectie = (
+    <div className="statusbalk banner-kaart">
+      <strong>Telmoment selecteren</strong>
+      <select
+        value={actiefTelmomentId || ""}
+        onChange={(e) => setActiefTelmomentId(Number(e.target.value))}
+      >
+        {telmomenten.map((telmoment) => (
+          <option value={telmoment.id} key={telmoment.id}>
+            {telmomentLabel(telmoment)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
     <div className="app">
-      <h1>Parkeeronderzoek Tool</h1>
+      <div className="vaste-banner">
+        <div className="banner-hoofd">
+          <div className="banner-titelblok">
+            <h1>Parkeeronderzoek Tool</h1>
+            <p className="banner-roltekst">
+              Actieve rol: <strong>{rol}</strong>.{" "}
+              {isBeheerder &&
+                "Je kunt zones, capaciteit, polygonen, telmomenten en kleurcodes beheren."}
+              {isInvuller &&
+                "Kies eerst een telmoment en registreer daarna nummerplaten per zone."}
+              {isAnalist &&
+                "Je bekijkt de resultaten per telmoment zonder data aan te passen."}
+            </p>
+          </div>
 
-      <div className="rolkeuze">
-          <button
-          className={rol === "beheerder" ? "rol-actief" : ""}
-          onClick={() => wijzigRol("beheerder")}
-        >
-          Beheerder
-        </button>
+          <div className="rolkeuze">
+            <button
+              className={rol === "beheerder" ? "rol-actief" : ""}
+              onClick={() => wijzigRol("beheerder")}
+            >
+              Beheerder
+            </button>
 
-        <button
-          className={rol === "invuller" ? "rol-actief" : ""}
-          onClick={() => wijzigRol("invuller")}
-        >
-          Invuller
-        </button>
+            <button
+              className={rol === "invuller" ? "rol-actief" : ""}
+              onClick={() => wijzigRol("invuller")}
+            >
+              Invuller
+            </button>
 
-        <button
-          className={rol === "analist" ? "rol-actief" : ""}
-          onClick={() => wijzigRol("analist")}
-        >
-          Analist
-        </button>
-      </div>
-
-      <p>
-        Actieve rol: <strong>{rol}</strong>.{" "}
-        {isBeheerder &&
-          "Je kunt zones, capaciteit, polygonen, telmomenten en kleurcodes beheren."}
-        {isInvuller &&
-          "Kies eerst een telmoment en registreer daarna nummerplaten per zone."}
-        {isAnalist &&
-          "Je bekijkt de resultaten per telmoment zonder data aan te passen."}
-      </p>
-
-      {isBeheerder && (
-        <div className="beheer-knoppen">
-          <button className="reset-knop" onClick={wisAlleGegevens}>
-            Wis alle gegevens
-          </button>
-
-          <button onClick={downloadBackup}>Download back-up</button>
-
-          <button onClick={exporteerCSV}>Exporteer CSV</button>
-
-          <label className="import-knop">
-            Back-up importeren
-            <input
-              type="file"
-              accept=".json,application/json"
-              onChange={importeerBackup}
-              hidden
-            />
-          </label>
+            <button
+              className={rol === "analist" ? "rol-actief" : ""}
+              onClick={() => wijzigRol("analist")}
+            >
+              Analist
+            </button>
+          </div>
         </div>
-      )}
 
-      {!isBeheerder && (
-        <div className="statusbalk">
-          <strong>Status:</strong>{" "}
-          {actieveZone ? (
+        <div className="banner-inhoud">
+          {isBeheerder && (
             <>
-              actieve zone: <strong>{actieveZone.naam}</strong> — telmoment:{" "}
-              <strong>{telmomentLabel(actiefTelmoment)}</strong> — punten:{" "}
-              <strong>{actieveZone.polygoon.length}</strong>
+              <div className="beheer-knoppen">
+                <button className="reset-knop" onClick={wisAlleGegevens}>
+                  Wis alle gegevens
+                </button>
+
+                <button onClick={downloadBackup}>Download back-up</button>
+
+                <button onClick={exporteerCSV}>Exporteer CSV</button>
+
+                <label className="import-knop">
+                  Back-up importeren
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={importeerBackup}
+                    hidden
+                  />
+                </label>
+              </div>
+
+              <KleurcodeInstellingen
+                KLEUREN={KLEUREN}
+                kleurGrenzen={kleurGrenzen}
+                pasLichtgrijsGrensAan={pasLichtgrijsGrensAan}
+                pasGroenGrensAan={pasGroenGrensAan}
+                pasOranjeGrensAan={pasOranjeGrensAan}
+              />
             </>
-          ) : (
+          )}
+
+          {isInvuller && telmomentSelectie}
+
+          {isAnalist && (
             <>
-              geen actieve zone — telmoment:{" "}
-              <strong>{telmomentLabel(actiefTelmoment)}</strong>
+              {telmomentSelectie}
+              <div className="statusbalk banner-kaart analyse-samenvatting">
+                <strong>Analyse-overzicht huidig telmoment</strong>
+                <span>Aantal zones: {zones.length}</span>
+                <span>
+                  Voertuigen: {totaalVoertuigenActiefTelmoment}
+                </span>
+                <span>Capaciteit: {totaleCapaciteit}</span>
+                <span>Bezetting: {totaleBezettingsgraad}%</span>
+              </div>
+              <div className="statusbalk banner-kaart banner-toggle-kaart">
+                <label className="kaarttaart-toggle">
+                  <input
+                    type="checkbox"
+                    checked={toonKaartTaarten}
+                    onChange={(e) => setToonKaartTaarten(e.target.checked)}
+                  />
+                  Toon taartdiagrammen op kaart
+                </label>
+              </div>
             </>
           )}
         </div>
-      )}
+      </div>
 
       <div className="layout">
         <section className="linkerkolom">
           {isBeheerder && (
             <BeheerderDashboard
-              KLEUREN={KLEUREN}
-              kleurGrenzen={kleurGrenzen}
-              pasLichtgrijsGrensAan={pasLichtgrijsGrensAan}
-              pasGroenGrensAan={pasGroenGrensAan}
-              pasOranjeGrensAan={pasOranjeGrensAan}
               telmomenten={telmomenten}
               nieuwTelmomentNaam={nieuwTelmomentNaam}
               setNieuwTelmomentNaam={setNieuwTelmomentNaam}
@@ -840,6 +1086,16 @@ function App() {
               setNieuwTelmomentTijdstip={setNieuwTelmomentTijdstip}
               voegTelmomentToe={voegTelmomentToe}
               verwijderTelmoment={verwijderTelmoment}
+              clusters={clusters}
+              actiefClusterId={actiefClusterId}
+              openClusterId={openClusterId}
+              nieuweClusterNaam={nieuweClusterNaam}
+              setNieuweClusterNaam={setNieuweClusterNaam}
+              voegClusterToe={voegClusterToe}
+              selecteerCluster={selecteerCluster}
+              toggleClusterOpen={toggleClusterOpen}
+              toggleClusterZone={toggleClusterZone}
+              verwijderCluster={verwijderCluster}
               nieuweZoneNaam={nieuweZoneNaam}
               setNieuweZoneNaam={setNieuweZoneNaam}
               nieuweCapaciteit={nieuweCapaciteit}
@@ -848,9 +1104,9 @@ function App() {
               zones={zones}
               actieveZoneId={actieveZoneId}
               actiefTelmoment={actiefTelmoment}
+              telmomentLabel={telmomentLabel}
               krijgNummerplaten={krijgNummerplaten}
               krijgVoorgesteldeNummerplaten={krijgVoorgesteldeNummerplaten}
-              telmomentLabel={telmomentLabel}
               bepaalKleur={bepaalKleur}
               selecteerZone={selecteerZone}
               toggleZoneOpen={toggleZoneOpen}
@@ -873,13 +1129,10 @@ function App() {
 
           {isInvuller && (
             <InvullerDashboard
-              telmomenten={telmomenten}
-              actiefTelmomentId={actiefTelmomentId}
-              setActiefTelmomentId={setActiefTelmomentId}
-              telmomentLabel={telmomentLabel}
               zones={zones}
               actieveZoneId={actieveZoneId}
               actiefTelmoment={actiefTelmoment}
+              telmomentLabel={telmomentLabel}
               krijgNummerplaten={krijgNummerplaten}
               krijgVoorgesteldeNummerplaten={krijgVoorgesteldeNummerplaten}
               bepaalKleur={bepaalKleur}
@@ -904,20 +1157,21 @@ function App() {
             <AnalistDashboard
               zones={zones}
               telmomenten={telmomenten}
-              actiefTelmomentId={actiefTelmomentId}
-              setActiefTelmomentId={setActiefTelmomentId}
-              telmomentLabel={telmomentLabel}
               krijgNummerplaten={krijgNummerplaten}
               totaalVoertuigenActiefTelmoment={totaalVoertuigenActiefTelmoment}
               totaleCapaciteit={totaleCapaciteit}
               totaleBezettingsgraad={totaleBezettingsgraad}
               verdelingPerZone={verdelingPerZone}
+              clusters={clusterAnalyses}
+              verdelingPerCluster={verdelingPerCluster}
+              krijgClusterNummerplaten={krijgClusterNummerplaten}
               bepaalKaartKleur={bepaalKaartKleur}
               grafiekKleuren={grafiekKleuren}
               geselecteerdeAnalistZones={geselecteerdeAnalistZones}
               toggleAnalistZone={toggleAnalistZone}
-              toonKaartTaarten={toonKaartTaarten}
-              setToonKaartTaarten={setToonKaartTaarten}
+              geselecteerdeAnalistClusters={geselecteerdeAnalistClusters}
+              toggleAnalistCluster={toggleAnalistCluster}
+              selecteerCluster={selecteerCluster}
               kleurGrenzen={kleurGrenzen}
             />
           )}
@@ -925,11 +1179,14 @@ function App() {
 
         <ParkeerKaart
           zones={zones}
+          clusters={clusters}
           telmomenten={telmomenten}
           actiefTelmoment={actiefTelmoment}
           actieveZoneId={actieveZoneId}
+          actiefClusterId={actiefClusterId}
           bewerkmodusZoneId={bewerkmodusZoneId}
           isBeheerder={isBeheerder}
+          isInvuller={isInvuller}
           isAnalist={isAnalist}
           toonKaartTaarten={toonKaartTaarten}
           tekenmodus={tekenmodus}
@@ -938,7 +1195,11 @@ function App() {
           krijgNummerplaten={krijgNummerplaten}
           telmomentLabel={telmomentLabel}
           bepaalKaartKleur={bepaalKaartKleur}
+          krijgClusterZones={krijgClusterZones}
+          krijgClusterAantal={krijgClusterAantal}
+          krijgClusterCapaciteit={krijgClusterCapaciteit}
           selecteerZone={selecteerZone}
+          selecteerCluster={selecteerCluster}
           voegPuntToe={voegPuntToe}
           voegPuntToeOpDichtsteZijde={voegPuntToeOpDichtsteZijde}
           verplaatsPunt={verplaatsPunt}

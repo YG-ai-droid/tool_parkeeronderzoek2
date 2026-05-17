@@ -1,13 +1,8 @@
-import KleurcodeInstellingen from "./KleurcodeInstellingen";
 import TelmomentenBeheer from "./TelmomentenBeheer";
 import ZonesBeheer from "./ZonesBeheer";
+import ClustersBeheer from "./ClustersBeheer";
 
 function BeheerderDashboard({
-  KLEUREN,
-  kleurGrenzen,
-  pasLichtgrijsGrensAan,
-  pasGroenGrensAan,
-  pasOranjeGrensAan,
   telmomenten,
   nieuwTelmomentNaam,
   setNieuwTelmomentNaam,
@@ -17,6 +12,16 @@ function BeheerderDashboard({
   setNieuwTelmomentTijdstip,
   voegTelmomentToe,
   verwijderTelmoment,
+  clusters,
+  actiefClusterId,
+  openClusterId,
+  nieuweClusterNaam,
+  setNieuweClusterNaam,
+  voegClusterToe,
+  selecteerCluster,
+  toggleClusterOpen,
+  toggleClusterZone,
+  verwijderCluster,
   nieuweZoneNaam,
   setNieuweZoneNaam,
   nieuweCapaciteit,
@@ -47,14 +52,6 @@ function BeheerderDashboard({
 }) {
   return (
     <>
-      <KleurcodeInstellingen
-        KLEUREN={KLEUREN}
-        kleurGrenzen={kleurGrenzen}
-        pasLichtgrijsGrensAan={pasLichtgrijsGrensAan}
-        pasGroenGrensAan={pasGroenGrensAan}
-        pasOranjeGrensAan={pasOranjeGrensAan}
-      />
-
       <TelmomentenBeheer
         telmomenten={telmomenten}
         nieuwTelmomentNaam={nieuwTelmomentNaam}
@@ -95,6 +92,20 @@ function BeheerderDashboard({
         wijzigInvoer={wijzigInvoer}
         voegNummerplaatToe={voegNummerplaatToe}
         verwijderNummerplaat={verwijderNummerplaat}
+      />
+
+      <ClustersBeheer
+        clusters={clusters}
+        zones={zones}
+        actiefClusterId={actiefClusterId}
+        openClusterId={openClusterId}
+        nieuweClusterNaam={nieuweClusterNaam}
+        setNieuweClusterNaam={setNieuweClusterNaam}
+        voegClusterToe={voegClusterToe}
+        selecteerCluster={selecteerCluster}
+        toggleClusterOpen={toggleClusterOpen}
+        toggleClusterZone={toggleClusterZone}
+        verwijderCluster={verwijderCluster}
       />
     </>
   );

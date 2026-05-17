@@ -6,52 +6,25 @@ import RotatieAnalyse from "./RotatieAnalyse";
 function AnalistDashboard({
   zones,
   telmomenten,
-  actiefTelmomentId,
-  setActiefTelmomentId,
-  telmomentLabel,
   krijgNummerplaten,
   totaalVoertuigenActiefTelmoment,
   totaleCapaciteit,
   totaleBezettingsgraad,
   verdelingPerZone,
+  clusters,
+  verdelingPerCluster,
+  krijgClusterNummerplaten,
   bepaalKaartKleur,
   grafiekKleuren,
   geselecteerdeAnalistZones,
   toggleAnalistZone,
-  toonKaartTaarten,
-  setToonKaartTaarten,
+  geselecteerdeAnalistClusters,
+  toggleAnalistCluster,
+  selecteerCluster,
   kleurGrenzen,
 }) {
   return (
     <>
-      <div className="statusbalk">
-        <strong>Telmoment selecteren</strong>
-        <br />
-        <select
-          value={actiefTelmomentId || ""}
-          onChange={(e) => setActiefTelmomentId(Number(e.target.value))}
-        >
-          {telmomenten.map((telmoment) => (
-            <option value={telmoment.id} key={telmoment.id}>
-              {telmomentLabel(telmoment)}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="statusbalk">
-        <strong>Analyse-overzicht huidig telmoment</strong>
-        <br />
-        Aantal zones: {zones.length}
-        <br />
-        Totaal aantal geregistreerde voertuigen:{" "}
-        {totaalVoertuigenActiefTelmoment}
-        <br />
-        Totale capaciteit: {totaleCapaciteit}
-        <br />
-        Totale bezettingsgraad: {totaleBezettingsgraad}%
-      </div>
-
       <div className="taart-grid taart-grid-overzicht">
         <Taartdiagram
           titel="Totale bezettingsgraad"
@@ -90,17 +63,6 @@ function AnalistDashboard({
       </div>
 
       <div className="statusbalk">
-        <label className="kaarttaart-toggle">
-          <input
-            type="checkbox"
-            checked={toonKaartTaarten}
-            onChange={(e) => setToonKaartTaarten(e.target.checked)}
-          />
-          Toon taartdiagrammen op kaart
-        </label>
-      </div>
-
-      <div className="statusbalk">
         <strong>Zones in lijngrafiek</strong>
 
         <div className="zone-checkboxes">
@@ -131,6 +93,74 @@ function AnalistDashboard({
         krijgNummerplaten={krijgNummerplaten}
         kleurGrenzen={kleurGrenzen}
       />
+
+      {clusters.length > 0 && (
+        <>
+          <div className="statusbalk">
+            <strong>Clusteranalyse huidig telmoment</strong>
+            <br />
+            Aantal clusters: {clusters.length}
+          </div>
+
+          <div className="taart-grid taart-grid-overzicht">
+            <VerdelingTaartdiagram
+              titel="Verdeling gebruikte plaatsen per cluster"
+              data={verdelingPerCluster}
+              grafiekKleuren={grafiekKleuren}
+            />
+          </div>
+
+          <div className="taart-grid taart-grid-zones">
+            {clusters.map((cluster) => (
+              <Taartdiagram
+                key={cluster.id}
+                titel={cluster.naam}
+                subtitel={`${cluster.zones.length} zones — capaciteit: ${cluster.capaciteit}`}
+                percentage={cluster.bezettingsgraad}
+                kleur={bepaalKaartKleur(cluster.bezettingsgraad)}
+                middenTekst={`${cluster.aantal}/${cluster.capaciteit}`}
+                onClick={() => selecteerCluster(cluster.id)}
+              />
+            ))}
+          </div>
+
+          <div className="statusbalk">
+            <strong>Clusters in lijngrafiek</strong>
+
+            <div className="zone-checkboxes">
+              {clusters.map((cluster) => (
+                <label key={cluster.id}>
+                  <input
+                    type="checkbox"
+                    checked={geselecteerdeAnalistClusters.includes(cluster.id)}
+                    onChange={() => toggleAnalistCluster(cluster.id)}
+                  />
+                  {cluster.naam}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <Lijngrafiek
+            titel="Evolutie getelde aantallen per cluster"
+            zones={clusters}
+            telmomenten={telmomenten}
+            geselecteerdeZoneIds={geselecteerdeAnalistClusters}
+            krijgNummerplaten={krijgClusterNummerplaten}
+            grafiekKleuren={grafiekKleuren}
+          />
+
+          <RotatieAnalyse
+            zones={clusters}
+            telmomenten={telmomenten}
+            krijgNummerplaten={krijgClusterNummerplaten}
+            kleurGrenzen={kleurGrenzen}
+            titel="Rotatieanalyse: verblijfsduur per cluster"
+            leegLabel="deze cluster"
+            onSelectItem={selecteerCluster}
+          />
+        </>
+      )}
     </>
   );
 }

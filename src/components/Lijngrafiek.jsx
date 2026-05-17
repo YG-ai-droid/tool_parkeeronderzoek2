@@ -1,4 +1,5 @@
 function Lijngrafiek({
+  titel = "Evolutie getelde aantallen per zone",
   zones,
   telmomenten,
   geselecteerdeZoneIds,
@@ -45,7 +46,7 @@ function Lijngrafiek({
 
   return (
     <div className="grafiekkaart">
-      <h2>Evolutie getelde aantallen per zone</h2>
+      <h2>{titel}</h2>
 
       {zichtbareZones.length === 0 ? (
         <p className="lege-lijst">Vink minstens één zone aan.</p>
@@ -67,21 +68,23 @@ function Lijngrafiek({
             className="aslijn"
           />
 
-          {[...new Set([0, Math.round(maxWaarde / 2), maxWaarde])].map((waarde) => (
-            <g key={waarde}>
-              <text x={8} y={yPos(waarde) + 4} className="aslabel">
-                {waarde}
-              </text>
+          {[...new Set([0, Math.round(maxWaarde / 2), maxWaarde])].map(
+            (waarde) => (
+              <g key={waarde}>
+                <text x={8} y={yPos(waarde) + 4} className="aslabel">
+                  {waarde}
+                </text>
 
-              <line
-                x1={margeLinks}
-                y1={yPos(waarde)}
-                x2={breedte - margeRechts}
-                y2={yPos(waarde)}
-                className="hulplijn"
-              />
-            </g>
-          ))}
+                <line
+                  x1={margeLinks}
+                  y1={yPos(waarde)}
+                  x2={breedte - margeRechts}
+                  y2={yPos(waarde)}
+                  className="hulplijn"
+                />
+              </g>
+            )
+          )}
 
           {telmomenten.map((telmoment, index) => (
             <text

@@ -6,7 +6,7 @@ function KleurcodeInstellingen({
   pasOranjeGrensAan,
 }) {
   return (
-    <div className="statusbalk">
+    <div className="statusbalk kleurcode-kaart">
       <strong>Kleurcodes instellen</strong>
 
       <div className="kleur-slider-container">

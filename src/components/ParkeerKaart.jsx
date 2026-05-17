@@ -12,11 +12,14 @@ import { berekenCentrum, maakMiniTaartIcon } from "./KaartHelpers";
 
 function ParkeerKaart({
   zones,
+  clusters,
   telmomenten,
   actiefTelmoment,
   actieveZoneId,
+  actiefClusterId,
   bewerkmodusZoneId,
   isBeheerder,
+  isInvuller,
   isAnalist,
   toonKaartTaarten,
   tekenmodus,
@@ -25,11 +28,39 @@ function ParkeerKaart({
   krijgNummerplaten,
   telmomentLabel,
   bepaalKaartKleur,
+  krijgClusterZones,
+  krijgClusterAantal,
+  krijgClusterCapaciteit,
   selecteerZone,
+  selecteerCluster,
   voegPuntToe,
   voegPuntToeOpDichtsteZijde,
   verplaatsPunt,
 }) {
+  const actiefCluster = clusters.find((cluster) => cluster.id === actiefClusterId);
+  const toonClusterMarkering = !isInvuller;
+  const actieveClusterZoneIds = new Set(
+    toonClusterMarkering ? actiefCluster?.zoneIds || [] : []
+  );
+
+  function berekenClusterCentrum(cluster) {
+    const zoneCentra = krijgClusterZones(cluster)
+      .filter((zone) => zone.polygoon.length >= 3)
+      .map((zone) => berekenCentrum(zone.polygoon));
+
+    if (zoneCentra.length === 0) return null;
+
+    const totaal = zoneCentra.reduce(
+      (som, punt) => ({
+        lat: som.lat + punt[0],
+        lng: som.lng + punt[1],
+      }),
+      { lat: 0, lng: 0 }
+    );
+
+    return [totaal.lat / zoneCentra.length, totaal.lng / zoneCentra.length];
+  }
+
   return (
     <section className="kaartkolom">
       <MapContainer
@@ -68,6 +99,7 @@ function ParkeerKaart({
         {zones.map((zone) => {
           if (zone.polygoon.length < 3) return null;
 
+          const isInActieveCluster = actieveClusterZoneIds.has(zone.id);
           const aantal = krijgNummerplaten(zone).length;
           const bezettingsgraad =
             zone.capaciteit > 0
@@ -79,9 +111,17 @@ function ParkeerKaart({
               key={zone.id}
               positions={zone.polygoon}
               pathOptions={{
-                color: bepaalKaartKleur(bezettingsgraad),
-                fillOpacity: actieveZoneId === zone.id ? 0.45 : 0.2,
-                weight: actieveZoneId === zone.id ? 4 : 2,
+                color: isInActieveCluster
+                  ? "#7c3aed"
+                  : bepaalKaartKleur(bezettingsgraad),
+                fillColor: isInActieveCluster
+                  ? "#a855f7"
+                  : bepaalKaartKleur(bezettingsgraad),
+                fillOpacity:
+                  actieveZoneId === zone.id || isInActieveCluster ? 0.45 : 0.2,
+                weight:
+                  actieveZoneId === zone.id || isInActieveCluster ? 5 : 2,
+                dashArray: isInActieveCluster ? "8 6" : null,
               }}
               eventHandlers={{
                 click: () => selecteerZone(zone.id),
@@ -109,6 +149,49 @@ function ParkeerKaart({
             </Polygon>
           );
         })}
+
+        {isAnalist &&
+          toonKaartTaarten &&
+          clusters.map((cluster) => {
+            const positie = berekenClusterCentrum(cluster);
+            if (!positie) return null;
+
+            const totaal = telmomenten.reduce(
+              (som, telmoment) =>
+                som + krijgClusterAantal(cluster, telmoment.id),
+              0
+            );
+
+            return (
+              <Marker
+                key={`cluster-taart-${cluster.id}`}
+                position={positie}
+                icon={maakMiniTaartIcon(
+                  cluster,
+                  telmomenten,
+                  (huidigCluster, telmomentId) =>
+                    Array.from({
+                      length: krijgClusterAantal(huidigCluster, telmomentId),
+                    }),
+                  grafiekKleuren
+                )}
+                eventHandlers={{
+                  click: () => selecteerCluster(cluster.id),
+                }}
+              >
+                <Tooltip direction="top" offset={[0, -12]} opacity={1}>
+                  <div className="mini-taart-tooltip">
+                    <strong>{cluster.naam}</strong>
+                    <br />
+                    Clustergebruik over alle telmomenten:{" "}
+                    <strong>{totaal}</strong>
+                    <br />
+                    Capaciteit: <strong>{krijgClusterCapaciteit(cluster)}</strong>
+                  </div>
+                </Tooltip>
+              </Marker>
+            );
+          })}
 
         {isAnalist &&
           toonKaartTaarten &&

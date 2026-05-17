@@ -1,13 +1,10 @@
 import ZoneLijst from "./ZoneLijst";
 
 function InvullerDashboard({
-  telmomenten,
-  actiefTelmomentId,
-  setActiefTelmomentId,
-  telmomentLabel,
   zones,
   actieveZoneId,
   actiefTelmoment,
+  telmomentLabel,
   krijgNummerplaten,
   krijgVoorgesteldeNummerplaten,
   bepaalKleur,
@@ -28,22 +25,6 @@ function InvullerDashboard({
 }) {
   return (
     <>
-      <div className="statusbalk">
-        <strong>Telmoment selecteren</strong>
-        <br />
-
-        <select
-          value={actiefTelmomentId || ""}
-          onChange={(e) => setActiefTelmomentId(Number(e.target.value))}
-        >
-          {telmomenten.map((telmoment) => (
-            <option value={telmoment.id} key={telmoment.id}>
-              {telmomentLabel(telmoment)}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <ZoneLijst
         zones={zones}
         actieveZoneId={actieveZoneId}

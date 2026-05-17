@@ -11,7 +11,120 @@ body {
 }
 
 h1 {
-  margin-bottom: 8px;
+  margin: 0;
+  font-size: 24px;
+}
+
+.vaste-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #f3f4f6;
+  border-bottom: 1px solid #d1d5db;
+  padding: 8px 0;
+  margin-bottom: 14px;
+}
+
+.banner-hoofd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.banner-titelblok {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.banner-roltekst {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.banner-inhoud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.vaste-banner .statusbalk {
+  margin-bottom: 0;
+  padding: 8px 10px;
+}
+
+.vaste-banner .beheer-knoppen {
+  margin-bottom: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.vaste-banner .beheer-knoppen button,
+.vaste-banner .beheer-knoppen .import-knop {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.vaste-banner .kleurcode-kaart {
+  flex: 1 1 620px;
+  min-width: 560px;
+}
+
+.vaste-banner .kleur-slider-container {
+  height: 44px;
+  margin: 4px 0 0;
+}
+
+.vaste-banner .kleur-schaal {
+  top: 22px;
+  height: 18px;
+}
+
+.vaste-banner .kleur-range {
+  top: 15px;
+}
+
+.vaste-banner .kleur-label {
+  top: 0;
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+.vaste-banner .kleurcode-uitleg.compact {
+  display: none;
+}
+
+.banner-kaart {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.analyse-samenvatting {
+  grid-template-columns: repeat(4, max-content);
+  gap: 6px 12px;
+  align-items: center;
+}
+
+.analyse-samenvatting strong {
+  grid-column: auto;
+}
+
+.banner-toggle-kaart {
+  align-content: center;
+}
+
+.vaste-banner .kaarttaart-toggle {
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .layout {
@@ -53,6 +166,14 @@ h1 {
   margin-bottom: 20px;
 }
 
+.nieuwe-cluster {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
 .telmoment-formulier {
   grid-template-columns: 1fr 150px 120px auto;
 }
@@ -88,6 +209,58 @@ h1 {
 
 .zone-card.actief {
   outline: 3px solid #2563eb;
+}
+
+.cluster-lijst {
+  display: grid;
+  gap: 12px;
+}
+
+.cluster-card {
+  border: 1px solid #d8b4fe;
+  border-radius: 12px;
+  padding: 12px;
+  background: #faf5ff;
+}
+
+.cluster-card.actief {
+  outline: 3px solid #7c3aed;
+}
+
+.cluster-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.cluster-header span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cluster-header small {
+  color: white;
+}
+
+.cluster-zones {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cluster-zones label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #312e81;
+}
+
+.cluster-zones input {
+  width: auto;
 }
 
 .zone-header {
@@ -180,6 +353,11 @@ button:disabled {
   display: flex;
   gap: 10px;
   margin: 16px 0;
+}
+
+.vaste-banner .rolkeuze {
+  margin: 0;
+  flex-wrap: wrap;
 }
 
 .rol-actief {
@@ -436,6 +614,14 @@ button:disabled {
   text-align: center;
 }
 
+.taartkaart.klikbaar {
+  cursor: pointer;
+}
+
+.taartkaart.klikbaar:hover {
+  outline: 3px solid #7c3aed;
+}
+
 .taartkaart h3 {
   color: black;
   margin-top: 0;
@@ -552,6 +738,12 @@ button:disabled {
   margin-top: 14px;
 }
 
+.rotatiekaart:hover {
+  outline: 2px solid #d8b4fe;
+  outline-offset: 4px;
+  cursor: pointer;
+}
+
 .rotatiekaart h3 {
   color: black;
   margin-bottom: 8px;
@@ -634,6 +826,54 @@ button:disabled {
   min-width: 28px;
 }
 
+.rotatie-popup {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  display: none;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 10px 12px;
+  background: white;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+  text-align: left;
+  font-weight: normal;
+  z-index: 30;
+}
+
+.rotatie-popup::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: white;
+}
+
+.verblijfsduur-balk:hover .rotatie-popup {
+  display: grid;
+  gap: 8px;
+}
+
+.rotatie-popup-regel {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.rotatie-popup-regel strong {
+  color: #111827;
+}
+
+.rotatie-popup-regel span {
+  color: #4b5563;
+}
+
 .verblijfsduur-som {
   padding: 10px 8px;
   text-align: center;
@@ -689,12 +929,18 @@ button:disabled {
   }
 
   .nieuwe-zone,
+  .nieuwe-cluster,
   .telmoment-formulier {
     grid-template-columns: 1fr;
   }
 
   .kleurcode-uitleg.compact {
     grid-template-columns: 1fr;
+  }
+
+  .vaste-banner .kleurcode-kaart {
+    min-width: 0;
+    flex-basis: 100%;
   }
 }
 button,
