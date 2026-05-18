@@ -15,7 +15,7 @@ function Lijngrafiek({
   const margeLinks = 44;
   const margeRechts = 20;
   const margeBoven = 24;
-  const margeOnder = 52;
+  const margeOnder = 66;
 
   const maxWaarde = Math.max(
     1,
@@ -42,6 +42,21 @@ function Lijngrafiek({
       margeOnder -
       (waarde / maxWaarde) * (hoogte - margeBoven - margeOnder)
     );
+  }
+
+  function formatteerDatum(datum) {
+    if (!datum) return "geen datum";
+
+    const datumObject = new Date(`${datum}T00:00:00`);
+    if (Number.isNaN(datumObject.getTime())) return datum;
+
+    const dagen = ["zo", "ma", "di", "wo", "do", "vr", "za"];
+    const dagNaam = dagen[datumObject.getDay()];
+    const dag = String(datumObject.getDate()).padStart(2, "0");
+    const maand = String(datumObject.getMonth() + 1).padStart(2, "0");
+    const jaar = String(datumObject.getFullYear()).slice(-2);
+
+    return `${dagNaam} ${dag}/${maand}/${jaar}`;
   }
 
   return (
@@ -90,11 +105,16 @@ function Lijngrafiek({
             <text
               key={telmoment.id}
               x={xPos(index)}
-              y={hoogte - 18}
+              y={hoogte - 32}
               textAnchor="middle"
               className="aslabel"
             >
-              {telmoment.tijdstip}
+              <tspan x={xPos(index)}>
+                {formatteerDatum(telmoment.datum)}
+              </tspan>
+              <tspan x={xPos(index)} dy="16">
+                {telmoment.tijdstip}
+              </tspan>
             </text>
           ))}
 

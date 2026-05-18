@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -35,6 +35,64 @@ function ZoomNaarProjectZones({ zones, actiefProjectId }) {
   }, [actiefProjectId, map, zones]);
 
   return null;
+}
+
+function MijnLocatieKnop({ isInvuller }) {
+  const map = useMap();
+  const [positie, setPositie] = useState(null);
+  const [bezig, setBezig] = useState(false);
+
+  if (!isInvuller) return null;
+
+  function centreerOpLocatie() {
+    if (!navigator.geolocation) {
+      alert("Locatiebepaling wordt niet ondersteund door deze browser.");
+      return;
+    }
+
+    setBezig(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (positieInfo) => {
+        const nieuwePositie = [
+          positieInfo.coords.latitude,
+          positieInfo.coords.longitude,
+        ];
+
+        setPositie(nieuwePositie);
+        map.setView(nieuwePositie, Math.max(map.getZoom(), 17), {
+          animate: true,
+        });
+        setBezig(false);
+      },
+      (fout) => {
+        setBezig(false);
+        const melding =
+          fout.code === fout.PERMISSION_DENIED
+            ? "Geef de browser toestemming om je locatie te gebruiken."
+            : "Je locatie kon niet bepaald worden.";
+        alert(melding);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  return (
+    <>
+      <div className="locatie-control">
+        <button type="button" onClick={centreerOpLocatie} disabled={bezig}>
+          {bezig
+            ? "Locatie zoeken..."
+            : "Centreer kaart op mijn locatie"}
+        </button>
+      </div>
+      {positie && (
+        <Marker position={positie}>
+          <Popup>Je huidige positie</Popup>
+        </Marker>
+      )}
+    </>
+  );
 }
 
 function ParkeerKaart({
@@ -101,6 +159,7 @@ function ParkeerKaart({
           zones={zones}
           actiefProjectId={actiefProjectId}
         />
+        <MijnLocatieKnop isInvuller={isInvuller} />
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Standaardkaart">
@@ -138,23 +197,28 @@ function ParkeerKaart({
             zone.capaciteit > 0
               ? Math.round((aantal / zone.capaciteit) * 100)
               : 0;
+          const kaartKleur = bepaalKaartKleur(bezettingsgraad);
+          const isGrijzeZone = kaartKleur.toLowerCase() === "#9ca3af";
+          const vulKleur = isBeheerder ? "#9ca3af" : kaartKleur;
+          const randKleur = isBeheerder || isGrijzeZone ? "#111827" : kaartKleur;
+          const toonClusterHighlight = isInActieveCluster && !isBeheerder;
 
           return (
             <Polygon
               key={zone.id}
               positions={zone.polygoon}
               pathOptions={{
-                color: isInActieveCluster
+                color: toonClusterHighlight
                   ? "#7c3aed"
-                  : bepaalKaartKleur(bezettingsgraad),
-                fillColor: isInActieveCluster
+                  : randKleur,
+                fillColor: toonClusterHighlight
                   ? "#a855f7"
-                  : bepaalKaartKleur(bezettingsgraad),
+                  : vulKleur,
                 fillOpacity:
-                  actieveZoneId === zone.id || isInActieveCluster ? 0.45 : 0.2,
+                  actieveZoneId === zone.id || toonClusterHighlight ? 0.45 : 0.25,
                 weight:
-                  actieveZoneId === zone.id || isInActieveCluster ? 5 : 2,
-                dashArray: isInActieveCluster ? "8 6" : null,
+                  actieveZoneId === zone.id || toonClusterHighlight ? 5 : 2,
+                dashArray: toonClusterHighlight ? "8 6" : null,
               }}
               eventHandlers={{
                 click: () => selecteerZone(zone.id),
@@ -175,6 +239,14 @@ function ParkeerKaart({
                 <br />
                 Capaciteit: {zone.capaciteit}
                 <br />
+                Regime: {zone.parkeerRegime || "vrij parkeren"}
+                <br />
+                {zone.maxParkeerduur && (
+                  <>
+                    Max. parkeerduur: {zone.maxParkeerduur}
+                    <br />
+                  </>
+                )}
                 Voertuigen: {aantal}
                 <br />
                 Bezettingsgraad: {bezettingsgraad}%

@@ -35,6 +35,21 @@ const grafiekKleuren = [
   "#854d0e",
 ];
 
+const parkeerRegimes = [
+  "vrij parkeren",
+  "blauwe zone",
+  "bewonerskaart",
+  "betalend parkeren",
+  "laadpaal",
+  "gehandicapten",
+  "laad- en loszone",
+  "kiss&ride",
+  "carpoolparking",
+  "vracht",
+];
+
+const regimesMetMaxDuur = ["blauwe zone", "betalend parkeren", "laadpaal"];
+
 const standaardKleurGrenzen = {
   lichtgrijsTot: 40,
   groenTot: 70,
@@ -57,6 +72,8 @@ const standaardZones = [
     capaciteit: 20,
     invoer: "",
     polygoon: [],
+    parkeerRegime: "vrij parkeren",
+    maxParkeerduur: "",
     tellingen: {
       1: [],
     },
@@ -65,10 +82,19 @@ const standaardZones = [
 
 function normaliseerZones(zones) {
   return zones.map((zone) => {
-    if (zone.tellingen) return { ...zone, invoer: zone.invoer || "" };
+    if (zone.tellingen) {
+      return {
+        ...zone,
+        invoer: zone.invoer || "",
+        parkeerRegime: zone.parkeerRegime || "vrij parkeren",
+        maxParkeerduur: zone.maxParkeerduur || "",
+      };
+    }
 
     return {
       ...zone,
+      parkeerRegime: zone.parkeerRegime || "vrij parkeren",
+      maxParkeerduur: zone.maxParkeerduur || "",
       tellingen: {
         1: zone.nummerplaten || [],
       },
@@ -107,6 +133,12 @@ function maakLeegProjectData() {
     openClusterId: null,
     geselecteerdeAnalistZones: standaardZones.map((zone) => zone.id),
     geselecteerdeAnalistClusters: [],
+    parkeerProfielen: [],
+    analyseModus: "telmoment",
+    analyseObjectType: "zone",
+    analyseObjectId: standaardZones[0].id,
+    actiefProfielId: null,
+    analistRegimeFilter: "",
   };
 }
 
@@ -131,6 +163,12 @@ function normaliseerProjectData(data) {
     geselecteerdeAnalistClusters:
       data?.geselecteerdeAnalistClusters ||
       clusters.map((cluster) => cluster.id),
+    parkeerProfielen: data?.parkeerProfielen || [],
+    analyseModus: data?.analyseModus || "telmoment",
+    analyseObjectType: data?.analyseObjectType || "zone",
+    analyseObjectId: data?.analyseObjectId || zones[0]?.id || null,
+    actiefProfielId: data?.actiefProfielId || null,
+    analistRegimeFilter: data?.analistRegimeFilter || "",
   };
 }
 
@@ -251,6 +289,24 @@ function App() {
     useState(() => {
       return eersteProjectData.geselecteerdeAnalistClusters;
     });
+  const [parkeerProfielen, setParkeerProfielen] = useState(() => {
+    return eersteProjectData.parkeerProfielen;
+  });
+  const [analyseModus, setAnalyseModus] = useState(() => {
+    return eersteProjectData.analyseModus;
+  });
+  const [analyseObjectType, setAnalyseObjectType] = useState(() => {
+    return eersteProjectData.analyseObjectType;
+  });
+  const [analyseObjectId, setAnalyseObjectId] = useState(() => {
+    return eersteProjectData.analyseObjectId;
+  });
+  const [actiefProfielId, setActiefProfielId] = useState(() => {
+    return eersteProjectData.actiefProfielId;
+  });
+  const [analistRegimeFilter, setAnalistRegimeFilter] = useState(() => {
+    return eersteProjectData.analistRegimeFilter;
+  });
 
   const [nieuweClusterNaam, setNieuweClusterNaam] = useState("");
 
@@ -271,6 +327,12 @@ function App() {
       openClusterId,
       geselecteerdeAnalistZones,
       geselecteerdeAnalistClusters,
+      parkeerProfielen,
+      analyseModus,
+      analyseObjectType,
+      analyseObjectId,
+      actiefProfielId,
+      analistRegimeFilter,
     });
   }, [
     kleurGrenzen,
@@ -283,6 +345,12 @@ function App() {
     openClusterId,
     geselecteerdeAnalistZones,
     geselecteerdeAnalistClusters,
+    parkeerProfielen,
+    analyseModus,
+    analyseObjectType,
+    analyseObjectId,
+    actiefProfielId,
+    analistRegimeFilter,
   ]);
 
   function laadProjectData(data) {
@@ -299,6 +367,12 @@ function App() {
     setOpenClusterId(projectData.openClusterId);
     setGeselecteerdeAnalistZones(projectData.geselecteerdeAnalistZones);
     setGeselecteerdeAnalistClusters(projectData.geselecteerdeAnalistClusters);
+    setParkeerProfielen(projectData.parkeerProfielen);
+    setAnalyseModus(projectData.analyseModus);
+    setAnalyseObjectType(projectData.analyseObjectType);
+    setAnalyseObjectId(projectData.analyseObjectId);
+    setActiefProfielId(projectData.actiefProfielId);
+    setAnalistRegimeFilter(projectData.analistRegimeFilter);
     setNieuweZoneNaam("");
     setNieuweCapaciteit("");
     setNieuweClusterNaam("");
@@ -345,6 +419,12 @@ function App() {
     openClusterId,
     geselecteerdeAnalistZones,
     geselecteerdeAnalistClusters,
+    parkeerProfielen,
+    analyseModus,
+    analyseObjectType,
+    analyseObjectId,
+    actiefProfielId,
+    analistRegimeFilter,
     actiefProjectId,
     maakActieveProjectData,
   ]);
@@ -416,6 +496,10 @@ function App() {
   function wijzigRol(nieuweRol) {
     setRol(nieuweRol);
 
+    if (nieuweRol === "invuller" && actiefTelmomentId === "gemiddelde") {
+      setActiefTelmomentId(telmomenten[0]?.id || null);
+    }
+
     if (nieuweRol !== "beheerder") {
       setTekenmodus(false);
       setBewerkmodusZoneId(null);
@@ -443,16 +527,6 @@ function App() {
     return krijgClusterZones(cluster).reduce(
       (totaal, zone) => totaal + krijgNummerplaten(zone, telmomentId).length,
       0
-    );
-  }
-
-  function krijgClusterNummerplaten(cluster, telmomentId = actiefTelmomentId) {
-    return krijgClusterZones(cluster).flatMap((zone) =>
-      krijgNummerplaten(zone, telmomentId).map((plaat) => ({
-        id: `${zone.id}-${plaat}`,
-        label: zone.naam,
-        capaciteit: zone.capaciteit,
-      }))
     );
   }
 
@@ -621,6 +695,8 @@ function App() {
       capaciteit: Number(nieuweCapaciteit),
       invoer: "",
       polygoon: [],
+      parkeerRegime: "vrij parkeren",
+      maxParkeerduur: "",
       tellingen: {},
     };
 
@@ -690,6 +766,24 @@ function App() {
 
     if (actiefClusterId === clusterId) setActiefClusterId(null);
     if (openClusterId === clusterId) setOpenClusterId(null);
+  }
+
+  function wijzigClusterNaam(clusterId) {
+    if (!isBeheerder) return;
+
+    const cluster = clusters.find((huidigeCluster) => huidigeCluster.id === clusterId);
+    if (!cluster) return;
+
+    const nieuweNaam = prompt("Nieuwe naam voor deze cluster:", cluster.naam);
+    if (nieuweNaam === null || nieuweNaam.trim() === "") return;
+
+    setClusters(
+      clusters.map((huidigeCluster) =>
+        huidigeCluster.id === clusterId
+          ? { ...huidigeCluster, naam: nieuweNaam.trim() }
+          : huidigeCluster
+      )
+    );
   }
 
   function selecteerZone(zoneId) {
@@ -923,6 +1017,34 @@ function App() {
     );
   }
 
+  function wijzigZoneRegime(zoneId, parkeerRegime) {
+    if (!isBeheerder) return;
+
+    setZones(
+      zones.map((zone) =>
+        zone.id === zoneId
+          ? {
+              ...zone,
+              parkeerRegime,
+              maxParkeerduur: regimesMetMaxDuur.includes(parkeerRegime)
+                ? zone.maxParkeerduur || ""
+                : "",
+            }
+          : zone
+      )
+    );
+  }
+
+  function wijzigZoneMaxParkeerduur(zoneId, maxParkeerduur) {
+    if (!isBeheerder) return;
+
+    setZones(
+      zones.map((zone) =>
+        zone.id === zoneId ? { ...zone, maxParkeerduur } : zone
+      )
+    );
+  }
+
   function downloadBackup() {
     if (!isBeheerder) return;
 
@@ -938,6 +1060,12 @@ function App() {
       openClusterId,
       geselecteerdeAnalistZones,
       geselecteerdeAnalistClusters,
+      parkeerProfielen,
+      analyseModus,
+      analyseObjectType,
+      analyseObjectId,
+      actiefProfielId,
+      analistRegimeFilter,
       kleurGrenzen,
     };
 
@@ -1000,6 +1128,8 @@ function App() {
         "Tijdstip",
         "Zone",
         "Capaciteit",
+        "Parkeerregime",
+        "Max parkeerduur",
         "Aantal voertuigen",
         "Bezettingsgraad",
         "Nummerplaten",
@@ -1022,6 +1152,8 @@ function App() {
           telmoment.tijdstip,
           zone.naam,
           zone.capaciteit,
+          zone.parkeerRegime || "vrij parkeren",
+          zone.maxParkeerduur || "",
           aantal,
           `${bezettingsgraad}%`,
           nummerplaten.join(", "),
@@ -1073,38 +1205,39 @@ function App() {
     }
   }
 
-  function toggleAnalistCluster(clusterId) {
-    if (geselecteerdeAnalistClusters.includes(clusterId)) {
-      setGeselecteerdeAnalistClusters(
-        geselecteerdeAnalistClusters.filter((id) => id !== clusterId)
-      );
-    } else {
-      setGeselecteerdeAnalistClusters([
-        ...geselecteerdeAnalistClusters,
-        clusterId,
-      ]);
-    }
+  function voegParkeerProfielToe(profiel) {
+    const nieuwProfiel = {
+      ...profiel,
+      id: Date.now(),
+    };
+
+    setParkeerProfielen([...parkeerProfielen, nieuwProfiel]);
+    setActiefProfielId(nieuwProfiel.id);
   }
 
-  const totaalVoertuigenActiefTelmoment = zones.reduce(
-    (totaal, zone) => totaal + krijgNummerplaten(zone).length,
-    0
-  );
+  function wijzigParkeerProfiel(profielId, profiel) {
+    setParkeerProfielen(
+      parkeerProfielen.map((bestaandProfiel) =>
+        bestaandProfiel.id === profielId
+          ? { ...bestaandProfiel, ...profiel }
+          : bestaandProfiel
+      )
+    );
+  }
 
-  const totaleCapaciteit = zones.reduce(
-    (totaal, zone) => totaal + zone.capaciteit,
-    0
-  );
+  function verwijderParkeerProfiel(profielId) {
+    const zeker = confirm("Ben je zeker dat je dit parkeerprofiel wil verwijderen?");
+    if (!zeker) return;
 
-  const totaleBezettingsgraad =
-    totaleCapaciteit > 0
-      ? Math.round((totaalVoertuigenActiefTelmoment / totaleCapaciteit) * 100)
-      : 0;
+    const nieuweProfielen = parkeerProfielen.filter(
+      (profiel) => profiel.id !== profielId
+    );
 
-  const verdelingPerZone = zones.map((zone) => ({
-    label: zone.naam,
-    waarde: krijgNummerplaten(zone).length,
-  }));
+    setParkeerProfielen(nieuweProfielen);
+    if (actiefProfielId === profielId) {
+      setActiefProfielId(nieuweProfielen[0]?.id || null);
+    }
+  }
 
   const clusterAnalyses = clusters.map((cluster) => {
     const aantal = krijgClusterAantal(cluster);
@@ -1118,11 +1251,6 @@ function App() {
       zones: krijgClusterZones(cluster),
     };
   });
-
-  const verdelingPerCluster = clusterAnalyses.map((cluster) => ({
-    label: cluster.naam,
-    waarde: cluster.aantal,
-  }));
 
   const telmomentSelectie = (
     <div className="statusbalk banner-kaart">
@@ -1249,15 +1377,35 @@ function App() {
 
           {isAnalist && (
             <>
-              {telmomentSelectie}
-              <div className="statusbalk banner-kaart analyse-samenvatting">
-                <strong>Analyse-overzicht huidig telmoment</strong>
-                <span>Aantal zones: {zones.length}</span>
-                <span>
-                  Voertuigen: {totaalVoertuigenActiefTelmoment}
-                </span>
-                <span>Capaciteit: {totaleCapaciteit}</span>
-                <span>Bezetting: {totaleBezettingsgraad}%</span>
+              <div className="statusbalk banner-kaart">
+                <strong>Analyse kiezen</strong>
+                <select
+                  value={analyseModus}
+                  onChange={(e) => setAnalyseModus(e.target.value)}
+                >
+                  <option value="telmoment">Alle zones op gekozen telmoment</option>
+                  <option value="object">
+                    Alle telmomenten voor zone of cluster
+                  </option>
+                  <option value="profiel">Parkeerprofiel</option>
+                  <option value="herhaling">
+                    Registratie zelfde voertuigen over tellingen heen
+                  </option>
+                </select>
+              </div>
+              <div className="statusbalk banner-kaart">
+                <strong>Parkeerregime filter</strong>
+                <select
+                  value={analistRegimeFilter}
+                  onChange={(e) => setAnalistRegimeFilter(e.target.value)}
+                >
+                  <option value="">Alle parkeerregimes</option>
+                  {parkeerRegimes.map((regime) => (
+                    <option value={regime} key={regime}>
+                      {regime}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="statusbalk banner-kaart banner-toggle-kaart">
                 <label className="kaarttaart-toggle">
@@ -1297,6 +1445,7 @@ function App() {
               toggleClusterOpen={toggleClusterOpen}
               toggleClusterZone={toggleClusterZone}
               verwijderCluster={verwijderCluster}
+              wijzigClusterNaam={wijzigClusterNaam}
               nieuweZoneNaam={nieuweZoneNaam}
               setNieuweZoneNaam={setNieuweZoneNaam}
               nieuweCapaciteit={nieuweCapaciteit}
@@ -1322,6 +1471,10 @@ function App() {
               wisPolygoon={wisPolygoon}
               verwijderZone={verwijderZone}
               wijzigZoneNaam={wijzigZoneNaam}
+              wijzigZoneRegime={wijzigZoneRegime}
+              wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
+              parkeerRegimes={parkeerRegimes}
+              regimesMetMaxDuur={regimesMetMaxDuur}
               bewerkmodusZoneId={bewerkmodusZoneId}
               wijzigInvoer={wijzigInvoer}
               voegNummerplaatToe={voegNummerplaatToe}
@@ -1360,21 +1513,28 @@ function App() {
               zones={zones}
               telmomenten={telmomenten}
               krijgNummerplaten={krijgNummerplaten}
-              totaalVoertuigenActiefTelmoment={totaalVoertuigenActiefTelmoment}
-              totaleCapaciteit={totaleCapaciteit}
-              totaleBezettingsgraad={totaleBezettingsgraad}
-              verdelingPerZone={verdelingPerZone}
               clusters={clusterAnalyses}
-              verdelingPerCluster={verdelingPerCluster}
-              krijgClusterNummerplaten={krijgClusterNummerplaten}
               bepaalKaartKleur={bepaalKaartKleur}
               grafiekKleuren={grafiekKleuren}
               geselecteerdeAnalistZones={geselecteerdeAnalistZones}
               toggleAnalistZone={toggleAnalistZone}
-              geselecteerdeAnalistClusters={geselecteerdeAnalistClusters}
-              toggleAnalistCluster={toggleAnalistCluster}
               selecteerCluster={selecteerCluster}
               kleurGrenzen={kleurGrenzen}
+              parkeerProfielen={parkeerProfielen}
+              actiefProfielId={actiefProfielId}
+              setActiefProfielId={setActiefProfielId}
+              voegParkeerProfielToe={voegParkeerProfielToe}
+              wijzigParkeerProfiel={wijzigParkeerProfiel}
+              verwijderParkeerProfiel={verwijderParkeerProfiel}
+              analyseModus={analyseModus}
+              analyseObjectType={analyseObjectType}
+              setAnalyseObjectType={setAnalyseObjectType}
+              analyseObjectId={analyseObjectId}
+              setAnalyseObjectId={setAnalyseObjectId}
+              actiefTelmomentId={actiefTelmomentId}
+              setActiefTelmomentId={setActiefTelmomentId}
+              telmomentLabel={telmomentLabel}
+              analistRegimeFilter={analistRegimeFilter}
             />
           )}
         </section>

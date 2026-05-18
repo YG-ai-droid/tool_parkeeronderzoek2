@@ -22,6 +22,7 @@ function BeheerderDashboard({
   toggleClusterOpen,
   toggleClusterZone,
   verwijderCluster,
+  wijzigClusterNaam,
   nieuweZoneNaam,
   setNieuweZoneNaam,
   nieuweCapaciteit,
@@ -46,6 +47,10 @@ function BeheerderDashboard({
   wisPolygoon,
   verwijderZone,
   wijzigZoneNaam,
+  wijzigZoneRegime,
+  wijzigZoneMaxParkeerduur,
+  parkeerRegimes,
+  regimesMetMaxDuur,
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -90,6 +95,10 @@ function BeheerderDashboard({
         wisPolygoon={wisPolygoon}
         verwijderZone={verwijderZone}
         wijzigZoneNaam={wijzigZoneNaam}
+        wijzigZoneRegime={wijzigZoneRegime}
+        wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
+        parkeerRegimes={parkeerRegimes}
+        regimesMetMaxDuur={regimesMetMaxDuur}
         bewerkmodusZoneId={bewerkmodusZoneId}
         wijzigInvoer={wijzigInvoer}
         voegNummerplaatToe={voegNummerplaatToe}
@@ -108,6 +117,7 @@ function BeheerderDashboard({
         toggleClusterOpen={toggleClusterOpen}
         toggleClusterZone={toggleClusterZone}
         verwijderCluster={verwijderCluster}
+        wijzigClusterNaam={wijzigClusterNaam}
       />
     </>
   );

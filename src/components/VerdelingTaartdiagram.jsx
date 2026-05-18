@@ -1,5 +1,7 @@
 function VerdelingTaartdiagram({ titel, data, grafiekKleuren }) {
   const totaal = data.reduce((som, item) => som + item.waarde, 0);
+  const toonWaarde = (waarde) =>
+    Number.isInteger(waarde) ? waarde : waarde.toFixed(1);
 
   if (totaal === 0) {
     return (
@@ -40,7 +42,7 @@ function VerdelingTaartdiagram({ titel, data, grafiekKleuren }) {
         }}
       >
         <div className="taart-midden">
-          <strong>{totaal}</strong>
+          <strong>{toonWaarde(totaal)}</strong>
           <span>plaatsen</span>
         </div>
       </div>
@@ -54,7 +56,7 @@ function VerdelingTaartdiagram({ titel, data, grafiekKleuren }) {
                 background: grafiekKleuren[index % grafiekKleuren.length],
               }}
             />
-            {item.label}: {item.waarde}
+            {item.label}: {toonWaarde(item.waarde)}
           </span>
         ))}
       </div>

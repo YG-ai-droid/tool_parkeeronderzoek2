@@ -25,6 +25,10 @@ function ZonesBeheer({
   wisPolygoon,
   verwijderZone,
   wijzigZoneNaam,
+  wijzigZoneRegime,
+  wijzigZoneMaxParkeerduur,
+  parkeerRegimes,
+  regimesMetMaxDuur,
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -72,6 +76,10 @@ function ZonesBeheer({
         wisPolygoon={wisPolygoon}
         verwijderZone={verwijderZone}
         wijzigZoneNaam={wijzigZoneNaam}
+        wijzigZoneRegime={wijzigZoneRegime}
+        wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
+        parkeerRegimes={parkeerRegimes}
+        regimesMetMaxDuur={regimesMetMaxDuur}
         bewerkmodusZoneId={bewerkmodusZoneId}
         wijzigInvoer={wijzigInvoer}
         voegNummerplaatToe={voegNummerplaatToe}

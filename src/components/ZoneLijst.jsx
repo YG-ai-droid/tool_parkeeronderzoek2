@@ -19,6 +19,10 @@ function ZoneLijst({
   wisPolygoon,
   verwijderZone,
   wijzigZoneNaam,
+  wijzigZoneRegime,
+  wijzigZoneMaxParkeerduur,
+  parkeerRegimes = [],
+  regimesMetMaxDuur = [],
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -41,9 +45,9 @@ function ZoneLijst({
 
         return (
           <div
-            className={`zone-card ${bepaalKleur(bezettingsgraad)} ${
-              isOpen ? "actief open" : "gesloten"
-            }`}
+            className={`zone-card ${
+              isBeheerder ? "beheer-zone-card" : bepaalKleur(bezettingsgraad)
+            } ${isOpen ? "actief open" : "gesloten"}`}
             key={zone.id}
           >
             <button
@@ -53,96 +57,158 @@ function ZoneLijst({
             >
               <span>
                 <strong>{zone.naam}</strong>
-                <small>
-                  {aantal}/{zone.capaciteit} voertuigen — {bezettingsgraad}%
-                  bezet
-                </small>
+                {isBeheerder ? (
+                  <small>
+                    Capaciteit: {zone.capaciteit} -{" "}
+                    {zone.parkeerRegime || "vrij parkeren"}
+                  </small>
+                ) : (
+                  <small>
+                    {aantal}/{zone.capaciteit} voertuigen - {bezettingsgraad}%
+                    bezet
+                  </small>
+                )}
               </span>
 
-              <span className="zone-status">
-                {zone.polygoon.length >= 3 ? "polygoon ok" : "geen polygoon"}
-              </span>
+              {!isBeheerder && !isInvuller && (
+                <span className="zone-status">
+                  {zone.polygoon.length >= 3 ? "polygoon ok" : "geen polygoon"}
+                </span>
+              )}
             </button>
 
             {isOpen && (
               <div className="zone-inhoud">
+                {!isBeheerder && (
+                  <p>
+                    Telmoment:{" "}
+                    <strong>{telmomentLabel(actiefTelmoment)}</strong>
+                  </p>
+                )}
+
                 <p>
-                  Telmoment: <strong>{telmomentLabel(actiefTelmoment)}</strong>
+                  {isBeheerder ? "Parkeerplaatsen" : "Capaciteit"}:{" "}
+                  <strong>{zone.capaciteit}</strong>
                 </p>
 
                 <p>
-                  Capaciteit: <strong>{zone.capaciteit}</strong>
+                  Parkeerregime:{" "}
+                  <strong>{zone.parkeerRegime || "vrij parkeren"}</strong>
+                  {zone.maxParkeerduur && ` (${zone.maxParkeerduur})`}
                 </p>
 
-                <p>
-                  Voertuigen: <strong>{aantal}</strong>
-                </p>
+                {!isBeheerder && (
+                  <>
+                    <p>
+                      Voertuigen: <strong>{aantal}</strong>
+                    </p>
 
-                <p>
-                  Bezettingsgraad: <strong>{bezettingsgraad}%</strong>
-                </p>
+                    <p>
+                      Bezettingsgraad: <strong>{bezettingsgraad}%</strong>
+                    </p>
 
-                <p>
-                  Polygoon:{" "}
-                  <strong>
-                    {zone.polygoon.length >= 3
-                      ? `${zone.polygoon.length} punten`
-                      : "nog niet geldig"}
-                  </strong>
-                </p>
+                    {!isInvuller && (
+                      <p>
+                        Polygoon:{" "}
+                        <strong>
+                          {zone.polygoon.length >= 3
+                            ? `${zone.polygoon.length} punten`
+                            : "nog niet geldig"}
+                        </strong>
+                      </p>
+                    )}
+                  </>
+                )}
 
-                {aantal > zone.capaciteit && (
+                {aantal > zone.capaciteit && !isBeheerder && (
                   <p className="waarschuwing">Overcapaciteit!</p>
                 )}
 
                 {isBeheerder && (
-                  <div className="knoppenrij beheer-zone-acties">
-                    <button onClick={() => wijzigZoneNaam(zone.id)}>
-                      Hernoem zone
-                    </button>
+                  <>
+                    <div className="zone-regime-form">
+                      <label>
+                        Parkeerregime
+                        <select
+                          value={zone.parkeerRegime || "vrij parkeren"}
+                          onChange={(e) =>
+                            wijzigZoneRegime(zone.id, e.target.value)
+                          }
+                        >
+                          {parkeerRegimes.map((regime) => (
+                            <option value={regime} key={regime}>
+                              {regime}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <button
-                      onClick={() => {
-                        setBewerkmodusZoneId(null);
-                        setTekenmodus(!tekenmodus);
-                        setActieveZoneId(zone.id);
-                      }}
-                    >
-                      {tekenmodus && actieveZoneId === zone.id
-                        ? "Stop tekenen"
-                        : "Start tekenen"}
-                    </button>
+                      {regimesMetMaxDuur.includes(zone.parkeerRegime) && (
+                        <label>
+                          Maximum parkeerduur
+                          <input
+                            type="text"
+                            placeholder="bv. 2 uur"
+                            value={zone.maxParkeerduur || ""}
+                            onChange={(e) =>
+                              wijzigZoneMaxParkeerduur(
+                                zone.id,
+                                e.target.value
+                              )
+                            }
+                          />
+                        </label>
+                      )}
+                    </div>
 
-                    <button
-                      disabled={zone.polygoon.length === 0}
-                      onClick={() => verwijderLaatstePunt(zone.id)}
-                    >
-                      Laatste punt weg
-                    </button>
+                    <div className="knoppenrij beheer-zone-acties">
+                      <button onClick={() => wijzigZoneNaam(zone.id)}>
+                        Hernoem zone
+                      </button>
 
-                    <button
-                      disabled={zone.polygoon.length < 3}
-                      onClick={() => toggleBewerkmodus(zone.id)}
-                    >
-                      {bewerkmodusZoneId === zone.id
-                        ? "Stop bewerken"
-                        : "Bewerk polygoon"}
-                    </button>
+                      <button
+                        onClick={() => {
+                          setBewerkmodusZoneId(null);
+                          setTekenmodus(!tekenmodus);
+                          setActieveZoneId(zone.id);
+                        }}
+                      >
+                        {tekenmodus && actieveZoneId === zone.id
+                          ? "Stop tekenen"
+                          : "Start tekenen"}
+                      </button>
 
-                    <button
-                      disabled={zone.polygoon.length === 0}
-                      onClick={() => wisPolygoon(zone.id)}
-                    >
-                      Wis polygoon
-                    </button>
+                      <button
+                        disabled={zone.polygoon.length === 0}
+                        onClick={() => verwijderLaatstePunt(zone.id)}
+                      >
+                        Laatste punt weg
+                      </button>
 
-                    <button
-                      className="verwijder-zone-knop"
-                      onClick={() => verwijderZone(zone.id)}
-                    >
-                      Verwijder zone
-                    </button>
-                  </div>
+                      <button
+                        disabled={zone.polygoon.length < 3}
+                        onClick={() => toggleBewerkmodus(zone.id)}
+                      >
+                        {bewerkmodusZoneId === zone.id
+                          ? "Stop bewerken"
+                          : "Bewerk polygoon"}
+                      </button>
+
+                      <button
+                        disabled={zone.polygoon.length === 0}
+                        onClick={() => wisPolygoon(zone.id)}
+                      >
+                        Wis polygoon
+                      </button>
+
+                      <button
+                        className="verwijder-zone-knop"
+                        onClick={() => verwijderZone(zone.id)}
+                      >
+                        Verwijder zone
+                      </button>
+                    </div>
+                  </>
                 )}
 
                 {isInvuller && (

@@ -10,6 +10,7 @@ function ClustersBeheer({
   toggleClusterOpen,
   toggleClusterZone,
   verwijderCluster,
+  wijzigClusterNaam,
 }) {
   return (
     <div className="beheer-zones-blok">
@@ -44,7 +45,7 @@ function ClustersBeheer({
               onDoubleClick={(e) => {
                 if (
                   e.target.closest(".cluster-zones") ||
-                  e.target.closest(".verwijder-zone-knop")
+                  e.target.closest(".cluster-acties")
                 ) {
                   return;
                 }
@@ -86,13 +87,22 @@ function ClustersBeheer({
                     ))}
                   </div>
 
-                  <button
-                    type="button"
-                    className="verwijder-zone-knop"
-                    onClick={() => verwijderCluster(cluster.id)}
-                  >
-                    Verwijder cluster
-                  </button>
+                  <div className="knoppenrij cluster-acties">
+                    <button
+                      type="button"
+                      onClick={() => wijzigClusterNaam(cluster.id)}
+                    >
+                      Hernoem cluster
+                    </button>
+
+                    <button
+                      type="button"
+                      className="verwijder-zone-knop"
+                      onClick={() => verwijderCluster(cluster.id)}
+                    >
+                      Verwijder cluster
+                    </button>
+                  </div>
                 </>
               )}
             </div>

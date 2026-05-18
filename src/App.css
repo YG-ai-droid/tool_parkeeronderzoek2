@@ -150,6 +150,17 @@ h1 {
   grid-column: auto;
 }
 
+.analyse-overzicht-rij {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.analyse-overzicht-rij strong {
+  margin-right: 4px;
+}
+
 .banner-toggle-kaart {
   align-content: center;
 }
@@ -221,6 +232,10 @@ h1 {
   border-radius: 14px;
   border-left: 12px solid gray;
   overflow: hidden;
+}
+
+.zone-card.beheer-zone-card {
+  border-left: 1px solid #e5e7eb;
 }
 
 .zone-card.lichtgrijs {
@@ -345,6 +360,24 @@ h1 {
   display: flex;
   gap: 10px;
   margin-top: 16px;
+}
+
+.zone-regime-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 1fr);
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.zone-regime-form label,
+.object-analyse-keuze label,
+.parkeerprofiel-form label,
+.parkeerprofiel-lijst label {
+  display: grid;
+  gap: 4px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: bold;
 }
 
 input,
@@ -703,6 +736,127 @@ button:disabled {
 .analyse-kader-clusters .statusbalk,
 .analyse-kader-clusters .taartkaart {
   border-color: #ead6ff;
+}
+
+.analyse-kader-profielen {
+  border-color: #bae6fd;
+  background: #f0f9ff;
+}
+
+.analyse-kader-herhaling {
+  border-color: #c4b5fd;
+  background: #f8f7ff;
+}
+
+.herhaling-legende {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.herhaling-legende span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compacte-taart-legende {
+  font-size: 12px;
+}
+
+.herhaling-taartdiagram {
+  position: relative;
+}
+
+.herhaling-segment-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.65);
+  pointer-events: none;
+}
+
+.object-analyse-keuze,
+.parkeerprofiel-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.parkeerprofiel-form button {
+  align-self: end;
+}
+
+.parkeerprofiel-lijst {
+  display: grid;
+  gap: 10px;
+}
+
+.profiel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: white;
+}
+
+.profiel-chip span {
+  font-weight: bold;
+  color: #111827;
+}
+
+.profiel-chip button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.profiel-resultaten {
+  display: grid;
+  gap: 10px;
+}
+
+.profiel-zonegrafiek {
+  background: white;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.profiel-zonebalk-rij {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(160px, 3fr) 44px;
+  gap: 10px;
+  align-items: center;
+}
+
+.profiel-zone-naam {
+  font-weight: 700;
+  color: #111827;
+}
+
+.profiel-zonebalk-spoor {
+  height: 22px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+}
+
+.profiel-zonebalk {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.profiel-zonebalk-rij strong {
+  color: #111827;
+  text-align: right;
 }
 
 .taart-grid {
@@ -1248,4 +1402,30 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.locatie-control {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  z-index: 1000;
+}
+
+.locatie-control button {
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  background: white;
+  color: #111827;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: bold;
+  box-shadow: none;
+  cursor: pointer !important;
+  pointer-events: auto;
+}
+
+.locatie-control button:hover {
+  background: #f3f4f6;
 }
