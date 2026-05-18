@@ -358,8 +358,27 @@ h1 {
 
 .invoer-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
+}
+
+.invoer-row input {
+  flex: 1 1 180px;
+}
+
+.dicteer-knop {
+  background: #0f766e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+
+.spraak-melding {
+  margin: 8px 0 0;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .zone-regime-form {

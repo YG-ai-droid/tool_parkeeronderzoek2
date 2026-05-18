@@ -1,3 +1,91 @@
+import { useState } from "react";
+
+const spraakTokenMap = {
+  nul: "0",
+  zero: "0",
+  een: "1",
+  twee: "2",
+  drie: "3",
+  vier: "4",
+  vijf: "5",
+  zes: "6",
+  zeven: "7",
+  acht: "8",
+  negen: "9",
+  a: "A",
+  aa: "A",
+  be: "B",
+  bee: "B",
+  b: "B",
+  cee: "C",
+  see: "C",
+  c: "C",
+  de: "D",
+  dee: "D",
+  d: "D",
+  e: "E",
+  ee: "E",
+  ef: "F",
+  f: "F",
+  gee: "G",
+  ge: "G",
+  g: "G",
+  ha: "H",
+  h: "H",
+  ie: "I",
+  i: "I",
+  jee: "J",
+  j: "J",
+  ka: "K",
+  k: "K",
+  el: "L",
+  l: "L",
+  em: "M",
+  m: "M",
+  en: "N",
+  n: "N",
+  o: "O",
+  oo: "O",
+  pee: "P",
+  pe: "P",
+  p: "P",
+  ku: "Q",
+  q: "Q",
+  er: "R",
+  r: "R",
+  es: "S",
+  s: "S",
+  tee: "T",
+  t: "T",
+  u: "U",
+  uu: "U",
+  vee: "V",
+  v: "V",
+  wee: "W",
+  w: "W",
+  iks: "X",
+  x: "X",
+  y: "Y",
+  ij: "Y",
+  zet: "Z",
+  z: "Z",
+};
+
+function normaliseerGedikteerdeNummerplaat(tekst) {
+  return tekst
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => {
+      const schoonToken = token.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return (
+        spraakTokenMap[schoonToken] ||
+        schoonToken.replace(/[^a-z0-9]/g, "").toUpperCase()
+      );
+    })
+    .join("")
+    .replace(/[^A-Z0-9]/g, "");
+}
+
 function ZoneLijst({
   zones,
   actieveZoneId,
@@ -28,6 +116,51 @@ function ZoneLijst({
   voegNummerplaatToe,
   verwijderNummerplaat,
 }) {
+  const [luisterendeZoneId, setLuisterendeZoneId] = useState(null);
+  const [spraakMelding, setSpraakMelding] = useState("");
+
+  function dicteerNummerplaat(zoneId) {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert(
+        "Dicteren wordt niet ondersteund door deze browser. Probeer Chrome of Edge."
+      );
+      return;
+    }
+
+    const herkenning = new SpeechRecognition();
+    herkenning.lang = "nl-BE";
+    herkenning.interimResults = false;
+    herkenning.maxAlternatives = 1;
+
+    setLuisterendeZoneId(zoneId);
+    setSpraakMelding("Luisteren...");
+
+    herkenning.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || "";
+      const nummerplaat = normaliseerGedikteerdeNummerplaat(transcript);
+
+      if (nummerplaat) {
+        wijzigInvoer(zoneId, nummerplaat);
+        setSpraakMelding(`Herkend: ${nummerplaat}`);
+      } else {
+        setSpraakMelding("Geen nummerplaat herkend.");
+      }
+    };
+
+    herkenning.onerror = () => {
+      setSpraakMelding("Dicteren is niet gelukt.");
+    };
+
+    herkenning.onend = () => {
+      setLuisterendeZoneId(null);
+    };
+
+    herkenning.start();
+  }
+
   return (
     <div className="zone-grid">
       {zones.map((zone) => {
@@ -229,7 +362,22 @@ function ZoneLijst({
                       <button onClick={() => voegNummerplaatToe(zone.id)}>
                         Voeg toe
                       </button>
+
+                      <button
+                        type="button"
+                        className="dicteer-knop"
+                        onClick={() => dicteerNummerplaat(zone.id)}
+                        disabled={luisterendeZoneId === zone.id}
+                      >
+                        {luisterendeZoneId === zone.id
+                          ? "Luisteren..."
+                          : "Dicteer"}
+                      </button>
                     </div>
+
+                    {spraakMelding && isOpen && (
+                      <p className="spraak-melding">{spraakMelding}</p>
+                    )}
 
                     {voorgesteldeNummerplaten.length > 0 && (
                       <div className="nummerplaat-suggesties">
