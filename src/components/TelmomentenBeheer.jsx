@@ -1,3 +1,5 @@
+import { formatBelgischeDatum } from "../utils/datum";
+
 function TelmomentenBeheer({
   telmomenten,
   nieuwTelmomentNaam,
@@ -39,7 +41,7 @@ function TelmomentenBeheer({
       <div className="nummerplaatlijst">
         {telmomenten.map((telmoment) => (
           <li key={telmoment.id}>
-            {telmoment.datum ? `${telmoment.datum} — ` : ""}
+            {telmoment.datum ? `${formatBelgischeDatum(telmoment.datum)} — ` : ""}
             {telmoment.naam} — {telmoment.tijdstip}
             <button
               className="verwijder-knop"

@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { formatBelgischeDatum } from "../utils/datum";
+
 function bepaalKleurNaam(bezettingsgraad, kleurGrenzen) {
   if (bezettingsgraad < kleurGrenzen.lichtgrijsTot) return "lichtgrijs";
   if (bezettingsgraad < kleurGrenzen.groenTot) return "groen";
@@ -14,6 +17,8 @@ function RotatieAnalyse({
   leegLabel = "deze zone",
   onSelectItem,
 }) {
+  const [actieveTooltip, setActieveTooltip] = useState(null);
+
   function krijgPlaatKey(plaat) {
     return typeof plaat === "object" ? plaat.id : plaat;
   }
@@ -118,6 +123,29 @@ function RotatieAnalyse({
     return bronnen;
   }
 
+  function toonTooltip(event, groep) {
+    const bronnen = groepTooltip(groep);
+    if (bronnen.length === 0) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const popupBreedte = 300;
+    const popupHoogte = Math.min(260, 52 + bronnen.length * 58);
+    const ruimteOnder = window.innerHeight - rect.bottom;
+    const plaatsBoven = ruimteOnder < popupHoogte + 18;
+    const x = Math.min(
+      Math.max(rect.left + rect.width / 2, popupBreedte / 2 + 12),
+      window.innerWidth - popupBreedte / 2 - 12
+    );
+    const y = plaatsBoven ? rect.top - 10 : rect.bottom + 10;
+
+    setActieveTooltip({
+      bronnen,
+      x,
+      y,
+      plaatsBoven,
+    });
+  }
+
   function verdeelOverRijen(groepen) {
     const rijen = [];
 
@@ -167,12 +195,12 @@ function RotatieAnalyse({
                 <div
                   className="verblijfsduur-grid"
                   style={{
-                    gridTemplateColumns: `repeat(${telmomenten.length}, minmax(90px, 1fr))`,
+                    gridTemplateColumns: `repeat(${telmomenten.length}, minmax(76px, 1fr))`,
                   }}
                 >
                   {telmomenten.map((telmoment) => (
                     <div className="verblijfsduur-kop" key={telmoment.id}>
-                      <span>{telmoment.datum || "geen datum"}</span>
+                      <span>{formatBelgischeDatum(telmoment.datum)}</span>
                       <strong>{telmoment.tijdstip}</strong>
                     </div>
                   ))}
@@ -190,6 +218,11 @@ function RotatieAnalyse({
                         <div
                           className="verblijfsduur-balk"
                           key={`${groep.eersteIndex}-${groep.laatsteIndex}`}
+                          onMouseEnter={(event) => toonTooltip(event, groep)}
+                          onMouseLeave={() => setActieveTooltip(null)}
+                          onFocus={(event) => toonTooltip(event, groep)}
+                          onBlur={() => setActieveTooltip(null)}
+                          tabIndex={groepTooltip(groep).length > 0 ? 0 : -1}
                           style={{
                             left: `${
                               (groep.eersteIndex / telmomenten.length) * 100
@@ -204,20 +237,6 @@ function RotatieAnalyse({
                           }}
                         >
                           {groep.aantal}
-                          {groepTooltip(groep).length > 0 && (
-                            <div className="rotatie-popup">
-                              {groepTooltip(groep).map((bron) => (
-                                <div
-                                  className="rotatie-popup-regel"
-                                  key={bron.label}
-                                >
-                                  <strong>{bron.label}</strong>
-                                  <span>Capaciteit: {bron.capaciteit}</span>
-                                  <span>Aantal: {bron.aantal}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -248,6 +267,26 @@ function RotatieAnalyse({
           </div>
         );
       })}
+
+      {actieveTooltip && (
+        <div
+          className={`rotatie-popup rotatie-popup-vast ${
+            actieveTooltip.plaatsBoven ? "rotatie-popup-boven" : ""
+          }`}
+          style={{
+            left: `${actieveTooltip.x}px`,
+            top: `${actieveTooltip.y}px`,
+          }}
+        >
+          {actieveTooltip.bronnen.map((bron) => (
+            <div className="rotatie-popup-regel" key={bron.label}>
+              <strong>{bron.label}</strong>
+              <span>Capaciteit: {bron.capaciteit}</span>
+              <span>Aantal: {bron.aantal}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import Taartdiagram from "./Taartdiagram";
 import VerdelingTaartdiagram from "./VerdelingTaartdiagram";
 import Lijngrafiek from "./Lijngrafiek";
 import RotatieAnalyse from "./RotatieAnalyse";
+import { formatBelgischeDatum } from "../utils/datum";
 
 const leegProfiel = {
   naam: "",
@@ -49,7 +50,9 @@ function AnalistDashboard({
 }) {
   const [profielFormulier, setProfielFormulier] = useState(leegProfiel);
   const [bewerkProfielId, setBewerkProfielId] = useState(null);
-  const analyseZones = analistRegimeFilter
+  const heeftRegimeFilter =
+    analistRegimeFilter && analistRegimeFilter !== "alle";
+  const analyseZones = heeftRegimeFilter
     ? zones.filter((zone) => zone.parkeerRegime === analistRegimeFilter)
     : zones;
   const analyseClusters = clusters
@@ -705,7 +708,7 @@ function AnalistDashboard({
 
             return (
               <div className="taartkaart" key={datum}>
-                <h3>{datum}</h3>
+                <h3>{formatBelgischeDatum(datum)}</h3>
                 <p className="taart-subtitel">
                   {totaal} unieke nummerplaten
                 </p>

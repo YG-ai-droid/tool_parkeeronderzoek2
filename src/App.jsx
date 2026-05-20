@@ -8,6 +8,10 @@ import AnalistDashboard from "./components/AnalistDashboard";
 import InvullerDashboard from "./components/InvullerDashboard";
 import ParkeerKaart from "./components/ParkeerKaart";
 import KleurcodeInstellingen from "./components/KleurcodeInstellingen";
+import {
+  formatBelgischeDatum,
+  formatBelgischeDatumOptioneel,
+} from "./utils/datum";
 
 const puntIcon = L.divIcon({
   className: "polygoon-punt",
@@ -226,6 +230,10 @@ function leesProjecten() {
 function App() {
   const [rol, setRol] = useState("beheerder");
   const [toonKaartTaarten, setToonKaartTaarten] = useState(true);
+  const [linkerKolomBreedte, setLinkerKolomBreedte] = useState(() => {
+    const bewaardeBreedte = Number(localStorage.getItem("linkerKolomBreedte"));
+    return bewaardeBreedte || 42;
+  });
   const [projecten, setProjecten] = useState(leesProjecten);
   const [actiefProjectId, setActiefProjectId] = useState(() => {
     const bewaardProjectId = Number(localStorage.getItem("actiefProjectId"));
@@ -238,6 +246,7 @@ function App() {
   });
   const [nieuweProjectNaam, setNieuweProjectNaam] = useState("");
   const projectLadenRef = useRef(false);
+  const layoutRef = useRef(null);
   const actiefProject =
     projecten.find((project) => project.id === actiefProjectId) ||
     projecten[0];
@@ -391,6 +400,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem("actiefProjectId", actiefProjectId);
   }, [actiefProjectId]);
+
+  useEffect(() => {
+    localStorage.setItem("linkerKolomBreedte", linkerKolomBreedte);
+  }, [linkerKolomBreedte]);
 
   useEffect(() => {
     if (projectLadenRef.current) {
@@ -569,7 +582,9 @@ function App() {
   function telmomentLabel(telmoment) {
     if (!telmoment) return "geen telmoment";
 
-    const datumDeel = telmoment.datum ? `${telmoment.datum} — ` : "";
+    const datumDeel = telmoment.datum
+      ? `${formatBelgischeDatum(telmoment.datum)} — `
+      : "";
 
     return `${datumDeel}${telmoment.naam} (${telmoment.tijdstip})`;
   }
@@ -1160,7 +1175,7 @@ function App() {
 
         rijen.push([
           telmoment.naam,
-          telmoment.datum || "",
+          formatBelgischeDatumOptioneel(telmoment.datum),
           telmoment.tijdstip,
           zone.naam,
           zone.capaciteit,
@@ -1249,6 +1264,50 @@ function App() {
     if (actiefProfielId === profielId) {
       setActiefProfielId(nieuweProfielen[0]?.id || null);
     }
+  }
+
+  function beperkKolomBreedte(waarde) {
+    return Math.min(Math.max(waarde, 28), 68);
+  }
+
+  function verplaatsKolomScheiding(event) {
+    const layout = layoutRef.current;
+    if (!layout) return;
+
+    event.preventDefault();
+    const rect = layout.getBoundingClientRect();
+    document.body.classList.add("kolom-resize-actief");
+
+    function verwerkPointer(pointerEvent) {
+      const breedtePercentage =
+        ((pointerEvent.clientX - rect.left) / rect.width) * 100;
+      setLinkerKolomBreedte(beperkKolomBreedte(breedtePercentage));
+      window.dispatchEvent(new Event("resize"));
+    }
+
+    function stopResize() {
+      document.body.classList.remove("kolom-resize-actief");
+      window.removeEventListener("pointermove", verwerkPointer);
+      window.removeEventListener("pointerup", stopResize);
+      window.dispatchEvent(new Event("resize"));
+    }
+
+    window.addEventListener("pointermove", verwerkPointer);
+    window.addEventListener("pointerup", stopResize);
+    verwerkPointer(event);
+  }
+
+  function verplaatsKolomScheidingMetToets(event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+    event.preventDefault();
+    const stap = event.shiftKey ? 5 : 2;
+    setLinkerKolomBreedte((huidigeBreedte) =>
+      beperkKolomBreedte(
+        huidigeBreedte + (event.key === "ArrowRight" ? stap : -stap)
+      )
+    );
+    window.dispatchEvent(new Event("resize"));
   }
 
   const clusterAnalyses = clusters.map((cluster) => {
@@ -1434,7 +1493,11 @@ function App() {
         </div>
       </div>
 
-      <div className="layout">
+      <div
+        className="layout"
+        ref={layoutRef}
+        style={{ "--linker-kolom-breedte": `${linkerKolomBreedte}%` }}
+      >
         <section className="linkerkolom">
           {isBeheerder && (
             <BeheerderDashboard
@@ -1551,6 +1614,19 @@ function App() {
             />
           )}
         </section>
+
+        <div
+          className="kolom-scheiding"
+          role="separator"
+          aria-label="Breedte van de kolommen aanpassen"
+          aria-orientation="vertical"
+          aria-valuemin={28}
+          aria-valuemax={68}
+          aria-valuenow={Math.round(linkerKolomBreedte)}
+          tabIndex={0}
+          onPointerDown={verplaatsKolomScheiding}
+          onKeyDown={verplaatsKolomScheidingMetToets}
+        />
 
         <ParkeerKaart
           zones={zones}

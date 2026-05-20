@@ -11,6 +11,7 @@ import {
 } from "react-leaflet";
 import KlikbareKaart from "./KlikbareKaart";
 import { berekenCentrum, maakMiniTaartIcon } from "./KaartHelpers";
+import { formatBelgischeDatumOptioneel } from "../utils/datum";
 
 function ZoomNaarProjectZones({ zones, actiefProjectId }) {
   const map = useMap();
@@ -136,6 +137,12 @@ function ParkeerKaart({
   const actieveClusterZoneIds = new Set(
     toonClusterMarkering ? actiefCluster?.zoneIds || [] : []
   );
+  const benadrukteZoneId =
+    isAnalist
+      ? analyseModus === "object" && analyseObjectType === "zone"
+        ? Number(analyseObjectId)
+        : null
+      : actieveZoneId;
 
   function berekenClusterCentrum(cluster) {
     const zoneCentra = krijgClusterZones(cluster)
@@ -247,6 +254,7 @@ function ParkeerKaart({
           const vulKleur = isBeheerder ? "#9ca3af" : kaartKleur;
           const randKleur = isBeheerder || isGrijzeZone ? "#111827" : kaartKleur;
           const toonClusterHighlight = isInActieveCluster && !isBeheerder;
+          const toonZoneHighlight = benadrukteZoneId === zone.id;
 
           return (
             <Polygon
@@ -260,9 +268,9 @@ function ParkeerKaart({
                   ? "#a855f7"
                   : vulKleur,
                 fillOpacity:
-                  actieveZoneId === zone.id || toonClusterHighlight ? 0.45 : 0.25,
+                  toonZoneHighlight || toonClusterHighlight ? 0.45 : 0.25,
                 weight:
-                  actieveZoneId === zone.id || toonClusterHighlight ? 5 : 2,
+                  toonZoneHighlight || toonClusterHighlight ? 5 : 2,
                 dashArray: toonClusterHighlight ? "8 6" : null,
               }}
               eventHandlers={{
@@ -408,7 +416,11 @@ function ParkeerKaart({
                                   ],
                               }}
                             />
-                            {telmoment.datum ? `${telmoment.datum} — ` : ""}
+                            {telmoment.datum
+                              ? `${formatBelgischeDatumOptioneel(
+                                  telmoment.datum
+                                )} — `
+                              : ""}
                             {telmoment.tijdstip}: {aantal} ({aandeel}%)
                           </div>
                         );

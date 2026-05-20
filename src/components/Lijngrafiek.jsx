@@ -1,3 +1,5 @@
+import { formatBelgischeDatum } from "../utils/datum";
+
 function Lijngrafiek({
   titel = "Evolutie getelde aantallen per zone",
   zones,
@@ -42,21 +44,6 @@ function Lijngrafiek({
       margeOnder -
       (waarde / maxWaarde) * (hoogte - margeBoven - margeOnder)
     );
-  }
-
-  function formatteerDatum(datum) {
-    if (!datum) return "geen datum";
-
-    const datumObject = new Date(`${datum}T00:00:00`);
-    if (Number.isNaN(datumObject.getTime())) return datum;
-
-    const dagen = ["zo", "ma", "di", "wo", "do", "vr", "za"];
-    const dagNaam = dagen[datumObject.getDay()];
-    const dag = String(datumObject.getDate()).padStart(2, "0");
-    const maand = String(datumObject.getMonth() + 1).padStart(2, "0");
-    const jaar = String(datumObject.getFullYear()).slice(-2);
-
-    return `${dagNaam} ${dag}/${maand}/${jaar}`;
   }
 
   return (
@@ -110,7 +97,7 @@ function Lijngrafiek({
               className="aslabel"
               transform={`rotate(90 ${xPos(index)} ${hoogte - margeOnder + 10})`}
             >
-              {formatteerDatum(telmoment.datum)} {telmoment.tijdstip}
+              {formatBelgischeDatum(telmoment.datum)} {telmoment.tijdstip}
             </text>
           ))}
 
