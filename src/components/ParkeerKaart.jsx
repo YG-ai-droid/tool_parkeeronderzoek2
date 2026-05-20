@@ -103,6 +103,9 @@ function ParkeerKaart({
   actiefTelmoment,
   actieveZoneId,
   actiefClusterId,
+  analyseModus,
+  analyseObjectType,
+  analyseObjectId,
   bewerkmodusZoneId,
   isBeheerder,
   isInvuller,
@@ -123,8 +126,13 @@ function ParkeerKaart({
   voegPuntToeOpDichtsteZijde,
   verplaatsPunt,
 }) {
-  const actiefCluster = clusters.find((cluster) => cluster.id === actiefClusterId);
-  const toonClusterMarkering = !isInvuller;
+  const toonClusterKaartElementen =
+    isAnalist && analyseModus === "object" && analyseObjectType === "cluster";
+  const kaartClusterId = toonClusterKaartElementen
+    ? Number(analyseObjectId) || actiefClusterId
+    : actiefClusterId;
+  const actiefCluster = clusters.find((cluster) => cluster.id === kaartClusterId);
+  const toonClusterMarkering = isBeheerder || toonClusterKaartElementen;
   const actieveClusterZoneIds = new Set(
     toonClusterMarkering ? actiefCluster?.zoneIds || [] : []
   );
@@ -146,6 +154,43 @@ function ParkeerKaart({
 
     return [totaal.lat / zoneCentra.length, totaal.lng / zoneCentra.length];
   }
+
+  function krijgTaartData(item, dataFunctie) {
+    const aantallen = telmomenten.map((telmoment) =>
+      dataFunctie(item, telmoment.id).length
+    );
+    const totaal = aantallen.reduce((som, aantal) => som + aantal, 0);
+
+    if (totaal === 0) {
+      return {
+        aantallen,
+        totaal,
+        achtergrond: "#e5e7eb",
+      };
+    }
+
+    let start = 0;
+    const segmenten = aantallen.map((aantal, index) => {
+      const aandeel = (aantal / totaal) * 100;
+      const einde = start + aandeel;
+      const segment = `${
+        grafiekKleuren[index % grafiekKleuren.length]
+      } ${start}% ${einde}%`;
+      start = einde;
+      return segment;
+    });
+
+    return {
+      aantallen,
+      totaal,
+      achtergrond: `conic-gradient(${segmenten.join(", ")})`,
+    };
+  }
+
+  const zichtbareZoneTaartIds =
+    isAnalist && analyseModus === "object" && analyseObjectType === "zone"
+      ? new Set([Number(analyseObjectId)])
+      : null;
 
   return (
     <section className="kaartkolom">
@@ -257,14 +302,19 @@ function ParkeerKaart({
 
         {isAnalist &&
           toonKaartTaarten &&
-          clusters.map((cluster) => {
+          toonClusterKaartElementen &&
+          clusters
+            .filter((cluster) => cluster.id === kaartClusterId)
+            .map((cluster) => {
             const positie = berekenClusterCentrum(cluster);
             if (!positie) return null;
 
-            const totaal = telmomenten.reduce(
-              (som, telmoment) =>
-                som + krijgClusterAantal(cluster, telmoment.id),
-              0
+            const taartData = krijgTaartData(
+              cluster,
+              (huidigCluster, telmomentId) =>
+                Array.from({
+                  length: krijgClusterAantal(huidigCluster, telmomentId),
+                })
             );
 
             return (
@@ -287,9 +337,15 @@ function ParkeerKaart({
                 <Tooltip direction="top" offset={[0, -12]} opacity={1}>
                   <div className="mini-taart-tooltip">
                     <strong>{cluster.naam}</strong>
+                    <div
+                      className="mini-taart-tooltip-groot"
+                      style={{ background: taartData.achtergrond }}
+                    >
+                      <span>{taartData.totaal}</span>
+                    </div>
                     <br />
                     Clustergebruik over alle telmomenten:{" "}
-                    <strong>{totaal}</strong>
+                    <strong>{taartData.totaal}</strong>
                     <br />
                     Capaciteit: <strong>{krijgClusterCapaciteit(cluster)}</strong>
                   </div>
@@ -300,14 +356,14 @@ function ParkeerKaart({
 
         {isAnalist &&
           toonKaartTaarten &&
+          !toonClusterKaartElementen &&
           zones.map((zone) => {
             if (zone.polygoon.length < 3) return null;
+            if (zichtbareZoneTaartIds && !zichtbareZoneTaartIds.has(zone.id)) {
+              return null;
+            }
 
-            const aantallen = telmomenten.map((telmoment) =>
-              krijgNummerplaten(zone, telmoment.id).length
-            );
-
-            const totaal = aantallen.reduce((som, aantal) => som + aantal, 0);
+            const taartData = krijgTaartData(zone, krijgNummerplaten);
 
             return (
               <Marker
@@ -323,15 +379,23 @@ function ParkeerKaart({
                 <Tooltip direction="top" offset={[0, -12]} opacity={1}>
                   <div className="mini-taart-tooltip">
                     <strong>{zone.naam}</strong>
+                    <div
+                      className="mini-taart-tooltip-groot"
+                      style={{ background: taartData.achtergrond }}
+                    >
+                      <span>{taartData.totaal}</span>
+                    </div>
                     <br />
                     Totaal gebruik over alle telmomenten:{" "}
-                    <strong>{totaal}</strong>
+                    <strong>{taartData.totaal}</strong>
 
                     <div className="mini-taart-legende">
                       {telmomenten.map((telmoment, index) => {
-                        const aantal = aantallen[index];
+                        const aantal = taartData.aantallen[index];
                         const aandeel =
-                          totaal > 0 ? Math.round((aantal / totaal) * 100) : 0;
+                          taartData.totaal > 0
+                            ? Math.round((aantal / taartData.totaal) * 100)
+                            : 0;
 
                         return (
                           <div key={telmoment.id}>

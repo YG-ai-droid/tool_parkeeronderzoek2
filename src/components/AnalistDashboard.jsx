@@ -567,6 +567,14 @@ function AnalistDashboard({
           })}
         </div>
 
+        <Lijngrafiek
+          zones={analyseZones}
+          telmomenten={telmomenten}
+          geselecteerdeZoneIds={geselecteerdeAnalistZones}
+          krijgNummerplaten={krijgNummerplaten}
+          grafiekKleuren={grafiekKleuren}
+        />
+
         <div className="statusbalk">
           <strong>Zones in lijngrafiek</strong>
 
@@ -583,14 +591,6 @@ function AnalistDashboard({
             ))}
           </div>
         </div>
-
-        <Lijngrafiek
-          zones={analyseZones}
-          telmomenten={telmomenten}
-          geselecteerdeZoneIds={geselecteerdeAnalistZones}
-          krijgNummerplaten={krijgNummerplaten}
-          grafiekKleuren={grafiekKleuren}
-        />
 
       </section>
     );

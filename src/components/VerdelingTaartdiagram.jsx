@@ -47,7 +47,7 @@ function VerdelingTaartdiagram({ titel, data, grafiekKleuren }) {
         </div>
       </div>
 
-      <div className="taart-legende">
+      <div className="taart-legende compacte-taart-legende">
         {data.map((item, index) => (
           <span key={item.label}>
             <span

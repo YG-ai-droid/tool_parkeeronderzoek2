@@ -1045,6 +1045,18 @@ function App() {
     );
   }
 
+  function wijzigZoneCapaciteit(zoneId, capaciteit) {
+    if (!isBeheerder) return;
+
+    const nieuweCapaciteit = Math.max(0, Number(capaciteit) || 0);
+
+    setZones(
+      zones.map((zone) =>
+        zone.id === zoneId ? { ...zone, capaciteit: nieuweCapaciteit } : zone
+      )
+    );
+  }
+
   function downloadBackup() {
     if (!isBeheerder) return;
 
@@ -1473,6 +1485,7 @@ function App() {
               wijzigZoneNaam={wijzigZoneNaam}
               wijzigZoneRegime={wijzigZoneRegime}
               wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
+              wijzigZoneCapaciteit={wijzigZoneCapaciteit}
               parkeerRegimes={parkeerRegimes}
               regimesMetMaxDuur={regimesMetMaxDuur}
               bewerkmodusZoneId={bewerkmodusZoneId}
@@ -1547,6 +1560,9 @@ function App() {
           actiefTelmoment={actiefTelmoment}
           actieveZoneId={actieveZoneId}
           actiefClusterId={actiefClusterId}
+          analyseModus={analyseModus}
+          analyseObjectType={analyseObjectType}
+          analyseObjectId={analyseObjectId}
           bewerkmodusZoneId={bewerkmodusZoneId}
           isBeheerder={isBeheerder}
           isInvuller={isInvuller}

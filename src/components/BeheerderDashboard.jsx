@@ -49,6 +49,7 @@ function BeheerderDashboard({
   wijzigZoneNaam,
   wijzigZoneRegime,
   wijzigZoneMaxParkeerduur,
+  wijzigZoneCapaciteit,
   parkeerRegimes,
   regimesMetMaxDuur,
   bewerkmodusZoneId,
@@ -97,6 +98,7 @@ function BeheerderDashboard({
         wijzigZoneNaam={wijzigZoneNaam}
         wijzigZoneRegime={wijzigZoneRegime}
         wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
+        wijzigZoneCapaciteit={wijzigZoneCapaciteit}
         parkeerRegimes={parkeerRegimes}
         regimesMetMaxDuur={regimesMetMaxDuur}
         bewerkmodusZoneId={bewerkmodusZoneId}

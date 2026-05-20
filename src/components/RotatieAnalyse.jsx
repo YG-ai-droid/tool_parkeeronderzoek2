@@ -118,12 +118,35 @@ function RotatieAnalyse({
     return bronnen;
   }
 
+  function verdeelOverRijen(groepen) {
+    const rijen = [];
+
+    groepen.forEach((groep) => {
+      const vrijeRij = rijen.find((rij) =>
+        rij.every(
+          (bestaandeGroep) =>
+            groep.laatsteIndex < bestaandeGroep.eersteIndex ||
+            groep.eersteIndex > bestaandeGroep.laatsteIndex
+        )
+      );
+
+      if (vrijeRij) {
+        vrijeRij.push(groep);
+      } else {
+        rijen.push([groep]);
+      }
+    });
+
+    return rijen;
+  }
+
   return (
     <div className="rotatieblok">
       <h2>{titel}</h2>
 
       {zones.map((zone) => {
         const groepen = analyseerZone(zone);
+        const rijen = verdeelOverRijen(groepen);
 
         return (
           <div
@@ -154,43 +177,49 @@ function RotatieAnalyse({
                     </div>
                   ))}
 
-                  {groepen.map((groep, index) => (
+                  {rijen.map((rij, rijIndex) => (
                     <div
                       className="verblijfsduur-balkzone"
-                      key={index}
+                      key={rijIndex}
                       style={{
                         gridColumn: `1 / span ${telmomenten.length}`,
                         "--aantal-telmomenten": telmomenten.length,
                       }}
                     >
-                      <div
-                        className="verblijfsduur-balk"
-                        style={{
-                          left: `${
-                            (groep.eersteIndex / telmomenten.length) * 100
-                          }%`,
-                          width: `${
-                            ((groep.laatsteIndex -
-                              groep.eersteIndex +
-                              1) /
-                              telmomenten.length) *
-                            100
-                          }%`,
-                        }}
-                      >
-                        {groep.aantal}
-                        {groepTooltip(groep).length > 0 && (
-                          <div className="rotatie-popup">
-                            {groepTooltip(groep).map((bron) => (
-                              <div className="rotatie-popup-regel" key={bron.label}>
-                                <strong>{bron.label}</strong>
-                                <span>Capaciteit: {bron.capaciteit}</span>
-                                <span>Aantal: {bron.aantal}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      {rij.map((groep) => (
+                        <div
+                          className="verblijfsduur-balk"
+                          key={`${groep.eersteIndex}-${groep.laatsteIndex}`}
+                          style={{
+                            left: `${
+                              (groep.eersteIndex / telmomenten.length) * 100
+                            }%`,
+                            width: `${
+                              ((groep.laatsteIndex -
+                                groep.eersteIndex +
+                                1) /
+                                telmomenten.length) *
+                              100
+                            }%`,
+                          }}
+                        >
+                          {groep.aantal}
+                          {groepTooltip(groep).length > 0 && (
+                            <div className="rotatie-popup">
+                              {groepTooltip(groep).map((bron) => (
+                                <div
+                                  className="rotatie-popup-regel"
+                                  key={bron.label}
+                                >
+                                  <strong>{bron.label}</strong>
+                                  <span>Capaciteit: {bron.capaciteit}</span>
+                                  <span>Aantal: {bron.aantal}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ))}
 

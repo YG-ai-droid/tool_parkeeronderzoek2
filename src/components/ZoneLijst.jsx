@@ -109,6 +109,7 @@ function ZoneLijst({
   wijzigZoneNaam,
   wijzigZoneRegime,
   wijzigZoneMaxParkeerduur,
+  wijzigZoneCapaciteit,
   parkeerRegimes = [],
   regimesMetMaxDuur = [],
   bewerkmodusZoneId,
@@ -260,6 +261,18 @@ function ZoneLijst({
                 {isBeheerder && (
                   <>
                     <div className="zone-regime-form">
+                      <label>
+                        Parkeerplaatsen
+                        <input
+                          type="number"
+                          min="0"
+                          value={zone.capaciteit}
+                          onChange={(e) =>
+                            wijzigZoneCapaciteit(zone.id, e.target.value)
+                          }
+                        />
+                      </label>
+
                       <label>
                         Parkeerregime
                         <select

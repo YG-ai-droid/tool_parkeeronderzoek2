@@ -11,11 +11,11 @@ function Lijngrafiek({
   );
 
   const breedte = 760;
-  const hoogte = 320;
+  const hoogte = 560;
   const margeLinks = 44;
   const margeRechts = 20;
   const margeBoven = 24;
-  const margeOnder = 66;
+  const margeOnder = 300;
 
   const maxWaarde = Math.max(
     1,
@@ -105,16 +105,12 @@ function Lijngrafiek({
             <text
               key={telmoment.id}
               x={xPos(index)}
-              y={hoogte - 32}
-              textAnchor="middle"
+              y={hoogte - margeOnder + 10}
+              textAnchor="start"
               className="aslabel"
+              transform={`rotate(90 ${xPos(index)} ${hoogte - margeOnder + 10})`}
             >
-              <tspan x={xPos(index)}>
-                {formatteerDatum(telmoment.datum)}
-              </tspan>
-              <tspan x={xPos(index)} dy="16">
-                {telmoment.tijdstip}
-              </tspan>
+              {formatteerDatum(telmoment.datum)} {telmoment.tijdstip}
             </text>
           ))}
 
