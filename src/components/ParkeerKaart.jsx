@@ -101,6 +101,7 @@ function ParkeerKaart({
   clusters,
   telmomenten,
   actiefProjectId,
+  actiefTelmomentId,
   actiefTelmoment,
   actieveZoneId,
   actiefClusterId,
@@ -143,6 +144,38 @@ function ParkeerKaart({
         ? Number(analyseObjectId)
         : null
       : actieveZoneId;
+  const toonGemiddeldZoneGebruik =
+    isAnalist &&
+    (analyseModus === "object" ||
+      (analyseModus === "telmoment" && actiefTelmomentId === "gemiddelde"));
+
+  function krijgZoneGebruikVoorKaart(zone) {
+    if (!toonGemiddeldZoneGebruik) {
+      const aantal = krijgNummerplaten(zone).length;
+      const bezettingsgraad =
+        zone.capaciteit > 0 ? Math.round((aantal / zone.capaciteit) * 100) : 0;
+
+      return {
+        aantal,
+        bezettingsgraad,
+        isGemiddelde: false,
+      };
+    }
+
+    const aantallen = telmomenten.map(
+      (telmoment) => krijgNummerplaten(zone, telmoment.id).length
+    );
+    const totaal = aantallen.reduce((som, aantal) => som + aantal, 0);
+    const gemiddelde = telmomenten.length > 0 ? totaal / telmomenten.length : 0;
+    const bezettingsgraad =
+      zone.capaciteit > 0 ? Math.round((gemiddelde / zone.capaciteit) * 100) : 0;
+
+    return {
+      aantal: gemiddelde,
+      bezettingsgraad,
+      isGemiddelde: true,
+    };
+  }
 
   function berekenClusterCentrum(cluster) {
     const zoneCentra = krijgClusterZones(cluster)
@@ -244,11 +277,8 @@ function ParkeerKaart({
           if (zone.polygoon.length < 3) return null;
 
           const isInActieveCluster = actieveClusterZoneIds.has(zone.id);
-          const aantal = krijgNummerplaten(zone).length;
-          const bezettingsgraad =
-            zone.capaciteit > 0
-              ? Math.round((aantal / zone.capaciteit) * 100)
-              : 0;
+          const { aantal, bezettingsgraad, isGemiddelde } =
+            krijgZoneGebruikVoorKaart(zone);
           const kaartKleur = bepaalKaartKleur(bezettingsgraad);
           const isGrijzeZone = kaartKleur.toLowerCase() === "#9ca3af";
           const vulKleur = isBeheerder ? "#9ca3af" : kaartKleur;
@@ -264,9 +294,7 @@ function ParkeerKaart({
                 color: toonClusterHighlight
                   ? "#7c3aed"
                   : randKleur,
-                fillColor: toonClusterHighlight
-                  ? "#a855f7"
-                  : vulKleur,
+                fillColor: vulKleur,
                 fillOpacity:
                   toonZoneHighlight || toonClusterHighlight ? 0.45 : 0.25,
                 weight:
@@ -288,7 +316,10 @@ function ParkeerKaart({
               <Popup>
                 <strong>{zone.naam}</strong>
                 <br />
-                Telmoment: {telmomentLabel(actiefTelmoment)}
+                Telmoment:{" "}
+                {isGemiddelde
+                  ? "Gemiddelde over alle telmomenten"
+                  : telmomentLabel(actiefTelmoment)}
                 <br />
                 Capaciteit: {zone.capaciteit}
                 <br />
@@ -300,9 +331,13 @@ function ParkeerKaart({
                     <br />
                   </>
                 )}
-                Voertuigen: {aantal}
+                {isGemiddelde ? "Gemiddeld aantal voertuigen" : "Voertuigen"}:{" "}
+                {isGemiddelde ? aantal.toFixed(1).replace(".", ",") : aantal}
                 <br />
-                Bezettingsgraad: {bezettingsgraad}%
+                {isGemiddelde
+                  ? "Gemiddelde bezettingsgraad"
+                  : "Bezettingsgraad"}
+                : {bezettingsgraad}%
               </Popup>
             </Polygon>
           );

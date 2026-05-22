@@ -1633,6 +1633,7 @@ function App() {
           clusters={clusters}
           telmomenten={telmomenten}
           actiefProjectId={actiefProjectId}
+          actiefTelmomentId={actiefTelmomentId}
           actiefTelmoment={actiefTelmoment}
           actieveZoneId={actieveZoneId}
           actiefClusterId={actiefClusterId}
