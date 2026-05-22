@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Taartdiagram from "./Taartdiagram";
+import Taartdiagram from "./taartdiagram";
 import VerdelingTaartdiagram from "./VerdelingTaartdiagram";
 import Lijngrafiek from "./Lijngrafiek";
 import RotatieAnalyse from "./RotatieAnalyse";
