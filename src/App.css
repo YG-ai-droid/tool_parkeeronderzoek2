@@ -1574,3 +1574,165 @@ button:disabled {
 .locatie-control button:hover {
   background: #f3f4f6;
 }
+
+@media (max-width: 700px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .app {
+    padding: 10px;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .vaste-banner {
+    position: static;
+    padding: 6px 0 8px;
+    margin-bottom: 10px;
+  }
+
+  .banner-hoofd {
+    display: grid;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .banner-titelblok {
+    gap: 4px;
+  }
+
+  .banner-roltekst {
+    display: none;
+  }
+
+  .vaste-banner .rolkeuze {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+  }
+
+  .vaste-banner .rolkeuze button {
+    min-height: 30px;
+    padding: 6px 7px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .banner-inhoud {
+    display: grid;
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+    gap: 6px;
+    padding-bottom: 0;
+  }
+
+  .banner-inhoud > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .vaste-banner .statusbalk {
+    padding: 6px 8px;
+    border-radius: 8px;
+  }
+
+  .banner-kaart {
+    min-width: 0;
+  }
+
+  .project-kaart,
+  .project-kaart-compact {
+    grid-template-columns: 1fr;
+    flex-basis: auto;
+  }
+
+  .project-kaart input,
+  .project-kaart select,
+  .banner-kaart select {
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .project-kaart button,
+  .vaste-banner .beheer-knoppen button,
+  .vaste-banner .beheer-knoppen .import-knop {
+    min-height: 30px;
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .vaste-banner .beheer-knoppen {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    flex-basis: auto;
+  }
+
+  .vaste-banner .kleurcode-kaart {
+    flex-basis: auto;
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .vaste-banner .kleur-slider-container {
+    height: 36px;
+    margin-top: 4px;
+  }
+
+  .vaste-banner .kleur-schaal {
+    top: 18px;
+    height: 14px;
+  }
+
+  .vaste-banner .kleur-range {
+    top: 10px;
+  }
+
+  .vaste-banner .kleur-label {
+    display: none;
+  }
+
+  .vaste-banner .kleurcode-grenzen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    font-size: 10px;
+    gap: 4px;
+  }
+
+  .analyse-overzicht-rij {
+    gap: 4px 8px;
+    font-size: 12px;
+  }
+
+  .layout {
+    gap: 10px;
+  }
+
+  .kaart {
+    height: min(58vh, 430px);
+    min-height: 340px;
+    border-radius: 10px;
+  }
+
+  .zone-card,
+  .beheer-zones-blok,
+  .analyse-kader,
+  .statusbalk,
+  .rotatieblok,
+  .grafiekkaart,
+  .taartkaart {
+    border-radius: 8px;
+  }
+
+  .taart-grid-overzicht {
+    grid-template-columns: 1fr;
+  }
+}
