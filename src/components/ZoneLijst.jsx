@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const MAX_NUMMERPLAAT_LENGTE = 20;
+
 const spraakTokenMap = {
   nul: "0",
   zero: "0",
@@ -363,6 +365,9 @@ function ZoneLijst({
                       <input
                         type="text"
                         placeholder="Nummerplaat"
+                        maxLength={MAX_NUMMERPLAAT_LENGTE}
+                        inputMode="text"
+                        autoComplete="off"
                         value={zone.invoer}
                         onChange={(e) => wijzigInvoer(zone.id, e.target.value)}
                         onKeyDown={(e) => {

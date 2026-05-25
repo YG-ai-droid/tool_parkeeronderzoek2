@@ -12,6 +12,11 @@ node_modules
 dist
 dist-ssr
 *.local
+src_bakcup
+code_project.txt
+backup_project_*.json
+olmen_*nummerplaten*.csv
+vul_project_*_testdata.js
 
 # Editor directories and files
 .vscode/*

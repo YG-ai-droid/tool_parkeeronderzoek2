@@ -84,33 +84,172 @@ const standaardZones = [
   },
 ];
 
-function normaliseerZones(zones) {
-  return zones.map((zone) => {
-    if (zone.tellingen) {
+const MAX_BACKUP_GROOTTE_BYTES = 10 * 1024 * 1024;
+const MAX_ZONES = 1000;
+const MAX_TELMOMENTEN = 500;
+const MAX_NUMMERPLATEN_PER_TELLING = 5000;
+const MAX_TEKST_LENGTE = 120;
+const MAX_NUMMERPLAAT_LENGTE = 20;
+
+function beperkTekst(waarde, fallback = "") {
+  return String(waarde ?? fallback).trim().slice(0, MAX_TEKST_LENGTE);
+}
+
+function normaliseerNummerplaat(waarde) {
+  return String(waarde ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, MAX_NUMMERPLAAT_LENGTE);
+}
+
+function sanitiseerBestandsnaam(waarde) {
+  return String(waarde ?? "project")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "project";
+}
+
+function normaliseerId(waarde, fallback) {
+  if (waarde === null || waarde === undefined || waarde === "") return fallback;
+
+  const id = Number(waarde);
+  return Number.isFinite(id) ? id : fallback;
+}
+
+function isGeldigeDatumWaarde(datum) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum || "")) return false;
+
+  const [jaar, maand, dag] = datum.split("-").map(Number);
+  const datumObject = new Date(`${datum}T00:00:00`);
+  return (
+    !Number.isNaN(datumObject.getTime()) &&
+    datumObject.getFullYear() === jaar &&
+    datumObject.getMonth() + 1 === maand &&
+    datumObject.getDate() === dag
+  );
+}
+
+function isGeldigeTijdWaarde(tijdstip) {
+  if (!/^\d{2}:\d{2}$/.test(tijdstip || "")) return false;
+
+  const [uren, minuten] = tijdstip.split(":").map(Number);
+  return uren >= 0 && uren <= 23 && minuten >= 0 && minuten <= 59;
+}
+
+function normaliseerCapaciteit(waarde) {
+  const capaciteit = Number(waarde);
+  if (!Number.isFinite(capaciteit)) return 0;
+  return Math.max(0, Math.min(100000, Math.round(capaciteit)));
+}
+
+function normaliseerPolygoon(polygoon) {
+  if (!Array.isArray(polygoon)) return [];
+
+  return polygoon
+    .map((punt) => {
+      if (!Array.isArray(punt) || punt.length < 2) return null;
+
+      const lat = Number(punt[0]);
+      const lng = Number(punt[1]);
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        return null;
+      }
+
+      return [lat, lng];
+    })
+    .filter(Boolean)
+    .slice(0, 500);
+}
+
+function normaliseerTellingen(tellingen, geldigeTelmomentIds = null) {
+  if (!tellingen || typeof tellingen !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(tellingen)
+      .filter(
+        ([telmomentId]) =>
+          !geldigeTelmomentIds || geldigeTelmomentIds.has(String(telmomentId))
+      )
+      .map(([telmomentId, platen]) => [
+        telmomentId,
+        Array.isArray(platen)
+          ? [
+              ...new Set(
+                platen
+                  .map(normaliseerNummerplaat)
+                  .filter(Boolean)
+                  .slice(0, MAX_NUMMERPLATEN_PER_TELLING)
+              ),
+            ]
+          : [],
+      ])
+  );
+}
+
+function normaliseerZones(zones, geldigeTelmomentIds = null) {
+  if (!Array.isArray(zones)) return standaardZones;
+
+  return zones.slice(0, MAX_ZONES).map((zone, index) => {
+    const id = normaliseerId(zone?.id, Date.now() + index);
+    const parkeerRegime = parkeerRegimes.includes(zone?.parkeerRegime)
+      ? zone.parkeerRegime
+      : "vrij parkeren";
+
+    if (zone?.tellingen) {
       return {
         ...zone,
-        invoer: zone.invoer || "",
-        parkeerRegime: zone.parkeerRegime || "vrij parkeren",
-        maxParkeerduur: zone.maxParkeerduur || "",
+        id,
+        naam: beperkTekst(zone.naam, `Zone ${index + 1}`),
+        capaciteit: normaliseerCapaciteit(zone.capaciteit),
+        invoer: normaliseerNummerplaat(zone.invoer),
+        polygoon: normaliseerPolygoon(zone.polygoon),
+        parkeerRegime,
+        maxParkeerduur: beperkTekst(zone.maxParkeerduur),
+        tellingen: normaliseerTellingen(zone.tellingen, geldigeTelmomentIds),
       };
     }
 
     return {
       ...zone,
-      parkeerRegime: zone.parkeerRegime || "vrij parkeren",
-      maxParkeerduur: zone.maxParkeerduur || "",
-      tellingen: {
-        1: zone.nummerplaten || [],
-      },
+      id,
+      naam: beperkTekst(zone.naam, `Zone ${index + 1}`),
+      capaciteit: normaliseerCapaciteit(zone.capaciteit),
       invoer: "",
+      polygoon: normaliseerPolygoon(zone.polygoon),
+      parkeerRegime,
+      maxParkeerduur: beperkTekst(zone.maxParkeerduur),
+      tellingen: {
+        1: Array.isArray(zone.nummerplaten)
+          ? zone.nummerplaten.map(normaliseerNummerplaat).filter(Boolean)
+          : [],
+      },
     };
   });
 }
 
 function normaliseerTelmomenten(telmomenten) {
-  return telmomenten.map((telmoment) => ({
+  if (!Array.isArray(telmomenten)) return standaardTelmomenten;
+
+  return telmomenten.slice(0, MAX_TELMOMENTEN).map((telmoment, index) => ({
     ...telmoment,
-    datum: telmoment.datum || "",
+    id: normaliseerId(telmoment?.id, Date.now() + index),
+    naam: beperkTekst(telmoment?.naam, `Telmoment ${index + 1}`),
+    datum: isGeldigeDatumWaarde(telmoment?.datum)
+      ? telmoment.datum
+      : "",
+    tijdstip: isGeldigeTijdWaarde(telmoment?.tijdstip)
+      ? telmoment.tijdstip
+      : "09:00",
   }));
 }
 
@@ -146,34 +285,181 @@ function maakLeegProjectData() {
   };
 }
 
-function normaliseerProjectData(data) {
-  const zones = normaliseerZones(data?.zones || standaardZones);
-  const clusters = data?.clusters || [];
-  const telmomenten = normaliseerTelmomenten(
-    data?.telmomenten || standaardTelmomenten
+function normaliseerKleurGrenzen(kleurGrenzen) {
+  const lichtgrijsTot = Math.min(
+    Math.max(Number(kleurGrenzen?.lichtgrijsTot) || 40, 0),
+    98
+  );
+  const groenTot = Math.min(
+    Math.max(Number(kleurGrenzen?.groenTot) || 70, lichtgrijsTot + 1),
+    99
+  );
+  const oranjeTot = Math.min(
+    Math.max(Number(kleurGrenzen?.oranjeTot) || 85, groenTot + 1),
+    100
   );
 
   return {
-    kleurGrenzen: data?.kleurGrenzen || standaardKleurGrenzen,
-    telmomenten,
-    actiefTelmomentId: data?.actiefTelmomentId || telmomenten[0]?.id || null,
-    zones,
-    actieveZoneId: data?.actieveZoneId || zones[0]?.id || null,
-    clusters,
-    actiefClusterId: data?.actiefClusterId || null,
-    openClusterId: data?.openClusterId || null,
-    geselecteerdeAnalistZones:
-      data?.geselecteerdeAnalistZones || zones.map((zone) => zone.id),
-    geselecteerdeAnalistClusters:
-      data?.geselecteerdeAnalistClusters ||
-      clusters.map((cluster) => cluster.id),
-    parkeerProfielen: data?.parkeerProfielen || [],
-    analyseModus: data?.analyseModus || "telmoment",
-    analyseObjectType: data?.analyseObjectType || "zone",
-    analyseObjectId: data?.analyseObjectId || zones[0]?.id || null,
-    actiefProfielId: data?.actiefProfielId || null,
-    analistRegimeFilter: data?.analistRegimeFilter || "",
+    lichtgrijsTot,
+    groenTot,
+    oranjeTot,
   };
+}
+
+function normaliseerClusters(clusters, zones) {
+  if (!Array.isArray(clusters)) return [];
+
+  const zoneIds = new Set(zones.map((zone) => zone.id));
+
+  return clusters.slice(0, MAX_ZONES).map((cluster, index) => ({
+    ...cluster,
+    id: normaliseerId(cluster?.id, Date.now() + index),
+    naam: beperkTekst(cluster?.naam, `Cluster ${index + 1}`),
+    zoneIds: Array.isArray(cluster?.zoneIds)
+      ? cluster.zoneIds.map(Number).filter((zoneId) => zoneIds.has(zoneId))
+      : [],
+  }));
+}
+
+function normaliseerParkeerProfielen(parkeerProfielen) {
+  if (!Array.isArray(parkeerProfielen)) return [];
+
+  return parkeerProfielen.slice(0, 200).map((profiel, index) => ({
+    ...profiel,
+    id: normaliseerId(profiel?.id, Date.now() + index),
+    naam: beperkTekst(profiel?.naam, `Profiel ${index + 1}`),
+    vensterStart: isGeldigeTijdWaarde(profiel?.vensterStart)
+      ? profiel.vensterStart
+      : "",
+    vensterEinde: isGeldigeTijdWaarde(profiel?.vensterEinde)
+      ? profiel.vensterEinde
+      : "",
+    minDuur: Math.max(1, Math.round(Number(profiel?.minDuur) || 1)),
+    maxDuur: profiel?.maxDuur
+      ? Math.max(1, Math.round(Number(profiel.maxDuur) || 1))
+      : "",
+  }));
+}
+
+function normaliseerProjectData(data) {
+  const telmomenten = normaliseerTelmomenten(
+    data?.telmomenten || standaardTelmomenten
+  );
+  const geldigeTelmomentIds = new Set(
+    telmomenten.map((telmoment) => String(telmoment.id))
+  );
+  const zones = normaliseerZones(data?.zones || standaardZones, geldigeTelmomentIds);
+  const clusters = normaliseerClusters(data?.clusters || [], zones);
+  const parkeerProfielen = normaliseerParkeerProfielen(data?.parkeerProfielen);
+  const analyseObjectType =
+    data?.analyseObjectType === "cluster" ? "cluster" : "zone";
+  const analyseObjecten = analyseObjectType === "cluster" ? clusters : zones;
+  const actieveZoneId = normaliseerId(data?.actieveZoneId, zones[0]?.id || null);
+  const actiefClusterId = normaliseerId(data?.actiefClusterId, null);
+  const openClusterId = normaliseerId(data?.openClusterId, null);
+  const actiefTelmomentId =
+    data?.actiefTelmomentId === "gemiddelde"
+      ? "gemiddelde"
+      : normaliseerId(data?.actiefTelmomentId, telmomenten[0]?.id || null);
+  const analyseObjectId = normaliseerId(
+    data?.analyseObjectId,
+    analyseObjecten[0]?.id || null
+  );
+  const actiefProfielId = normaliseerId(data?.actiefProfielId, null);
+  const geselecteerdeAnalistZones = Array.isArray(data?.geselecteerdeAnalistZones)
+    ? data.geselecteerdeAnalistZones.map(Number).filter((zoneId) =>
+        zones.some((zone) => zone.id === zoneId)
+      )
+    : zones.map((zone) => zone.id);
+
+  return {
+    kleurGrenzen: normaliseerKleurGrenzen(data?.kleurGrenzen),
+    telmomenten,
+    actiefTelmomentId:
+      actiefTelmomentId === "gemiddelde" ||
+      telmomenten.some((telmoment) => telmoment.id === actiefTelmomentId)
+        ? actiefTelmomentId
+        : telmomenten[0]?.id || null,
+    zones,
+    actieveZoneId: zones.some((zone) => zone.id === actieveZoneId)
+      ? actieveZoneId
+      : zones[0]?.id || null,
+    clusters,
+    actiefClusterId: clusters.some((cluster) => cluster.id === actiefClusterId)
+      ? actiefClusterId
+      : null,
+    openClusterId: clusters.some((cluster) => cluster.id === openClusterId)
+      ? openClusterId
+      : null,
+    geselecteerdeAnalistZones,
+    geselecteerdeAnalistClusters:
+      Array.isArray(data?.geselecteerdeAnalistClusters)
+        ? data.geselecteerdeAnalistClusters
+            .map(Number)
+            .filter((clusterId) =>
+              clusters.some((cluster) => cluster.id === clusterId)
+            )
+        : clusters.map((cluster) => cluster.id),
+    parkeerProfielen,
+    analyseModus: ["telmoment", "object", "profiel", "herhaling"].includes(
+      data?.analyseModus
+    )
+      ? data.analyseModus
+      : "telmoment",
+    analyseObjectType,
+    analyseObjectId: analyseObjecten.some((object) => object.id === analyseObjectId)
+      ? analyseObjectId
+      : analyseObjecten[0]?.id || null,
+    actiefProfielId: parkeerProfielen.some(
+      (profiel) => profiel.id === actiefProfielId
+    )
+      ? actiefProfielId
+      : null,
+    analistRegimeFilter: parkeerRegimes.includes(data?.analistRegimeFilter)
+      ? data.analistRegimeFilter
+      : "",
+  };
+}
+
+function valideerBackupVoorImport(backup) {
+  if (!backup || typeof backup !== "object") {
+    throw new Error("De back-up heeft geen geldige structuur.");
+  }
+
+  if (!Array.isArray(backup.zones) || !Array.isArray(backup.telmomenten)) {
+    throw new Error("De back-up mist zones of telmomenten.");
+  }
+
+  if (backup.zones.length === 0 || backup.telmomenten.length === 0) {
+    throw new Error("De back-up bevat geen zones of telmomenten.");
+  }
+
+  if (backup.zones.length > MAX_ZONES) {
+    throw new Error(`De back-up bevat meer dan ${MAX_ZONES} zones.`);
+  }
+
+  if (backup.telmomenten.length > MAX_TELMOMENTEN) {
+    throw new Error(
+      `De back-up bevat meer dan ${MAX_TELMOMENTEN} telmomenten.`
+    );
+  }
+
+  const zoneIds = backup.zones
+    .map((zone) => normaliseerId(zone?.id, null))
+    .filter((id) => id !== null);
+  const telmomentIds = backup.telmomenten
+    .map((telmoment) => normaliseerId(telmoment?.id, null))
+    .filter((id) => id !== null);
+
+  if (new Set(zoneIds).size !== zoneIds.length) {
+    throw new Error("De back-up bevat dubbele zone-ID's.");
+  }
+
+  if (new Set(telmomentIds).size !== telmomentIds.length) {
+    throw new Error("De back-up bevat dubbele telmoment-ID's.");
+  }
+
+  return normaliseerProjectData(backup);
 }
 
 function leesLegacyProjectData() {
@@ -936,7 +1222,9 @@ function App() {
 
     setZones(
       zones.map((zone) =>
-        zone.id === zoneId ? { ...zone, invoer: waarde.toUpperCase() } : zone
+        zone.id === zoneId
+          ? { ...zone, invoer: normaliseerNummerplaat(waarde) }
+          : zone
       )
     );
   }
@@ -953,7 +1241,7 @@ function App() {
       zones.map((zone) => {
         if (zone.id !== zoneId) return zone;
 
-        const plaat = (voorgesteldePlaat || zone.invoer).trim().toUpperCase();
+        const plaat = normaliseerNummerplaat(voorgesteldePlaat || zone.invoer);
         if (plaat === "") return zone;
 
         const bestaandePlaten = krijgNummerplaten(zone, actiefTelmomentId);
@@ -1075,6 +1363,11 @@ function App() {
   function downloadBackup() {
     if (!isBeheerder) return;
 
+    const zeker = confirm(
+      "Een back-up bevat alle ingevoerde nummerplaten. Deel dit bestand alleen met personen die deze gegevens mogen zien. Wil je doorgaan?"
+    );
+    if (!zeker) return;
+
     const backup = {
       gemaaktOp: new Date().toISOString(),
       projectNaam: actiefProject.naam,
@@ -1102,9 +1395,9 @@ function App() {
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = `parkeeronderzoek-${actiefProject.naam
-      .toLowerCase()
-      .replaceAll(" ", "-")}-backup.json`;
+    link.download = `parkeeronderzoek-${sanitiseerBestandsnaam(
+      actiefProject.naam
+    )}-backup.json`;
     link.click();
 
     URL.revokeObjectURL(url);
@@ -1116,16 +1409,18 @@ function App() {
     const bestand = event.target.files[0];
     if (!bestand) return;
 
+    if (bestand.size > MAX_BACKUP_GROOTTE_BYTES) {
+      alert("Dit back-upbestand is te groot om veilig te importeren.");
+      event.target.value = "";
+      return;
+    }
+
     const lezer = new FileReader();
 
     lezer.onload = function (e) {
       try {
         const backup = JSON.parse(e.target.result);
-
-        if (!backup.zones || !backup.telmomenten) {
-          alert("Dit bestand lijkt geen geldige back-up te zijn.");
-          return;
-        }
+        const projectData = valideerBackupVoorImport(backup);
 
         const zeker = confirm(
           "Ben je zeker dat je deze back-up wil importeren? De huidige gegevens worden overschreven."
@@ -1133,11 +1428,15 @@ function App() {
 
         if (!zeker) return;
 
-        laadProjectData(backup);
+        laadProjectData(projectData);
 
         alert("Back-up succesvol geïmporteerd.");
-      } catch {
-        alert("Het bestand kon niet gelezen worden als geldige JSON-back-up.");
+      } catch (fout) {
+        alert(
+          fout instanceof Error
+            ? fout.message
+            : "Het bestand kon niet gelezen worden als geldige JSON-back-up."
+        );
       }
     };
 
@@ -1145,8 +1444,24 @@ function App() {
     event.target.value = "";
   }
 
-  function exporteerCSV() {
+  function exporteerCSV({ anoniem = false } = {}) {
     if (!isBeheerder && !isAnalist) return;
+
+    if (!anoniem) {
+      const zeker = confirm(
+        "Deze CSV bevat de ingevoerde nummerplaten. Gebruik liever de geanonimiseerde export als je het bestand wil delen. Wil je toch doorgaan?"
+      );
+      if (!zeker) return;
+    }
+
+    const anoniemePlaten = new Map();
+    function krijgExportPlaat(plaat) {
+      if (!anoniem) return plaat;
+      if (!anoniemePlaten.has(plaat)) {
+        anoniemePlaten.set(plaat, `ANON${anoniemePlaten.size + 1}`);
+      }
+      return anoniemePlaten.get(plaat);
+    }
 
     const rijen = [
       [
@@ -1165,7 +1480,9 @@ function App() {
 
     telmomenten.forEach((telmoment) => {
       zones.forEach((zone) => {
-        const nummerplaten = krijgNummerplaten(zone, telmoment.id);
+        const nummerplaten = krijgNummerplaten(zone, telmoment.id).map(
+          krijgExportPlaat
+        );
         const aantal = nummerplaten.length;
 
         const bezettingsgraad =
@@ -1204,7 +1521,9 @@ function App() {
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = "parkeeronderzoek-resultaten.csv";
+    link.download = anoniem
+      ? "parkeeronderzoek-resultaten-geanonimiseerd.csv"
+      : "parkeeronderzoek-resultaten.csv";
     link.click();
 
     URL.revokeObjectURL(url);
@@ -1422,6 +1741,10 @@ function App() {
                 <button onClick={downloadBackup}>Download back-up</button>
 
                 <button onClick={exporteerCSV}>Exporteer CSV</button>
+
+                <button onClick={() => exporteerCSV({ anoniem: true })}>
+                  Exporteer CSV anoniem
+                </button>
 
                 <label className="import-knop">
                   Back-up importeren
