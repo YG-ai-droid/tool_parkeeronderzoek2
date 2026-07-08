@@ -18,6 +18,7 @@ function InvullerDashboard({
   toggleBewerkmodus,
   wisPolygoon,
   verwijderZone,
+  verplaatsZone,
   bewerkmodusZoneId,
   wijzigInvoer,
   voegNummerplaatToe,
@@ -45,6 +46,7 @@ function InvullerDashboard({
         toggleBewerkmodus={toggleBewerkmodus}
         wisPolygoon={wisPolygoon}
         verwijderZone={verwijderZone}
+        verplaatsZone={verplaatsZone}
         bewerkmodusZoneId={bewerkmodusZoneId}
         wijzigInvoer={wijzigInvoer}
         voegNummerplaatToe={voegNummerplaatToe}

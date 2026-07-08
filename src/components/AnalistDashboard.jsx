@@ -14,12 +14,50 @@ const leegProfiel = {
 };
 
 const GEMIDDELDE_TELMOMENT_ID = "gemiddelde";
-const herhalingCategorieen = [
-  { key: "een", label: "1 keer", kleur: "#94a3b8" },
-  { key: "twee", label: "2 keer", kleur: "#38bdf8" },
-  { key: "drie", label: "3 keer", kleur: "#f59e0b" },
-  { key: "vierPlus", label: "4 of meer keer", kleur: "#7c3aed" },
+const HERHALING_MIN_LAATSTE_CATEGORIE = 2;
+const HERHALING_MAX_LAATSTE_CATEGORIE = 10;
+const HERHALING_TAART_DIAMETER = 160;
+const HERHALING_LABEL_STRAAL = 55;
+const herhalingKleuren = [
+  "#94a3b8",
+  "#38bdf8",
+  "#f59e0b",
+  "#7c3aed",
+  "#10b981",
+  "#ef4444",
+  "#6366f1",
+  "#14b8a6",
+  "#f97316",
+  "#be185d",
 ];
+
+function begrensHerhalingLaatsteCategorie(waarde) {
+  return Math.min(
+    HERHALING_MAX_LAATSTE_CATEGORIE,
+    Math.max(HERHALING_MIN_LAATSTE_CATEGORIE, Math.round(Number(waarde) || 4))
+  );
+}
+
+function maakHerhalingCategorieen(vanafAantal) {
+  const laatsteVanaf = begrensHerhalingLaatsteCategorie(vanafAantal);
+  const categorieen = [];
+
+  for (let aantal = 1; aantal < laatsteVanaf; aantal += 1) {
+    categorieen.push({
+      key: `exact-${aantal}`,
+      label: `${aantal} keer`,
+      kleur: herhalingKleuren[(aantal - 1) % herhalingKleuren.length],
+    });
+  }
+
+  categorieen.push({
+    key: `vanaf-${laatsteVanaf}`,
+    label: `${laatsteVanaf} of meer keer`,
+    kleur: herhalingKleuren[(laatsteVanaf - 1) % herhalingKleuren.length],
+  });
+
+  return categorieen;
+}
 
 function AnalistDashboard({
   zones,
@@ -50,6 +88,11 @@ function AnalistDashboard({
 }) {
   const [profielFormulier, setProfielFormulier] = useState(leegProfiel);
   const [bewerkProfielId, setBewerkProfielId] = useState(null);
+  const [herhalingLaatsteCategorieVanaf, setHerhalingLaatsteCategorieVanaf] =
+    useState(4);
+  const herhalingCategorieen = maakHerhalingCategorieen(
+    herhalingLaatsteCategorieVanaf
+  );
   const heeftRegimeFilter =
     analistRegimeFilter && analistRegimeFilter !== "alle";
   const analyseZones = heeftRegimeFilter
@@ -143,6 +186,9 @@ function AnalistDashboard({
     return (cluster.zones || []).flatMap((zone) =>
       krijgNummerplaten(zone, telmomentId).map((plaat) => ({
         id: `${zone.id}-${plaat}`,
+        plaat,
+        zoneId: zone.id,
+        telmomentId,
         label: zone.naam,
         capaciteit: zone.capaciteit,
       }))
@@ -150,52 +196,62 @@ function AnalistDashboard({
   }
 
   function categoriseerHerhaling(aantal) {
-    if (aantal <= 1) return "een";
-    if (aantal === 2) return "twee";
-    if (aantal === 3) return "drie";
-    return "vierPlus";
+    const laatsteVanaf = begrensHerhalingLaatsteCategorie(
+      herhalingLaatsteCategorieVanaf
+    );
+
+    return aantal >= laatsteVanaf
+      ? `vanaf-${laatsteVanaf}`
+      : `exact-${Math.max(1, aantal)}`;
+  }
+
+  function maakLegeHerhalingTellingen() {
+    return Object.fromEntries(
+      herhalingCategorieen.map((categorie) => [categorie.key, 0])
+    );
   }
 
   function berekenHerhalingPerZone(zone) {
-    const tellingenPerPlaat = {};
+    const telmomentenPerPlaat = {};
 
     telmomenten.forEach((telmoment) => {
       krijgNummerplaten(zone, telmoment.id).forEach((plaat) => {
-        tellingenPerPlaat[plaat] = (tellingenPerPlaat[plaat] || 0) + 1;
+        if (!telmomentenPerPlaat[plaat]) telmomentenPerPlaat[plaat] = new Set();
+        telmomentenPerPlaat[plaat].add(telmoment.id);
       });
     });
 
-    const categorieTellingen = {
-      een: 0,
-      twee: 0,
-      drie: 0,
-      vierPlus: 0,
-    };
+    const categorieTellingen = maakLegeHerhalingTellingen();
 
-    Object.values(tellingenPerPlaat).forEach((aantal) => {
-      categorieTellingen[categoriseerHerhaling(aantal)] += 1;
+    Object.values(telmomentenPerPlaat).forEach((telmomentIds) => {
+      categorieTellingen[categoriseerHerhaling(telmomentIds.size)] += 1;
     });
 
     return categorieTellingen;
   }
 
   function telHerhalingInPlatenLijst(platen) {
-    const tellingenPerPlaat = {};
+    const registratiesPerPlaat = {};
 
-    platen.forEach((plaat) => {
-      const sleutel = typeof plaat === "object" ? plaat.id : plaat;
-      tellingenPerPlaat[sleutel] = (tellingenPerPlaat[sleutel] || 0) + 1;
+    platen.forEach((plaat, index) => {
+      const sleutel =
+        typeof plaat === "object" ? plaat.plaat || plaat.id : plaat;
+      const registratieSleutel =
+        typeof plaat === "object" && plaat.telmomentId !== undefined
+          ? plaat.telmomentId
+          : index;
+
+      if (!registratiesPerPlaat[sleutel]) {
+        registratiesPerPlaat[sleutel] = new Set();
+      }
+
+      registratiesPerPlaat[sleutel].add(registratieSleutel);
     });
 
-    const categorieTellingen = {
-      een: 0,
-      twee: 0,
-      drie: 0,
-      vierPlus: 0,
-    };
+    const categorieTellingen = maakLegeHerhalingTellingen();
 
-    Object.values(tellingenPerPlaat).forEach((aantal) => {
-      categorieTellingen[categoriseerHerhaling(aantal)] += 1;
+    Object.values(registratiesPerPlaat).forEach((registraties) => {
+      categorieTellingen[categoriseerHerhaling(registraties.size)] += 1;
     });
 
     return categorieTellingen;
@@ -211,9 +267,9 @@ function AnalistDashboard({
 
     let start = 0;
     const segmenten = herhalingCategorieen
-      .filter((categorie) => categorieTellingen[categorie.key] > 0)
+      .filter((categorie) => (categorieTellingen[categorie.key] || 0) > 0)
       .map((categorie) => {
-        const aandeel = (categorieTellingen[categorie.key] / totaal) * 100;
+        const aandeel = ((categorieTellingen[categorie.key] || 0) / totaal) * 100;
         const einde = start + aandeel;
         const segment = `${categorie.kleur} ${start}% ${einde}%`;
         start = einde;
@@ -234,21 +290,21 @@ function AnalistDashboard({
     let start = 0;
 
     return herhalingCategorieen
-      .filter((categorie) => categorieTellingen[categorie.key] > 0)
+      .filter((categorie) => (categorieTellingen[categorie.key] || 0) > 0)
       .map((categorie) => {
-        const aantal = categorieTellingen[categorie.key];
+        const aantal = categorieTellingen[categorie.key] || 0;
         const aandeel = aantal / totaal;
         const midden = start + aandeel / 2;
         start += aandeel;
 
         const hoek = midden * 2 * Math.PI - Math.PI / 2;
-        const straal = 46;
+        const centrum = HERHALING_TAART_DIAMETER / 2;
 
         return {
           key: categorie.key,
           aantal,
-          x: 65 + Math.cos(hoek) * straal,
-          y: 65 + Math.sin(hoek) * straal,
+          x: centrum + Math.cos(hoek) * HERHALING_LABEL_STRAAL,
+          y: centrum + Math.sin(hoek) * HERHALING_LABEL_STRAAL,
         };
       });
   }
@@ -413,6 +469,26 @@ function AnalistDashboard({
       });
 
     return Object.values(groepen).filter((groep) => groep.length > 0);
+  }
+
+  function renderHerhalingInstelling() {
+    return (
+      <label className="herhaling-instelling">
+        Laatste categorie vanaf
+        <input
+          type="number"
+          min={HERHALING_MIN_LAATSTE_CATEGORIE}
+          max={HERHALING_MAX_LAATSTE_CATEGORIE}
+          value={herhalingLaatsteCategorieVanaf}
+          onChange={(e) =>
+            setHerhalingLaatsteCategorieVanaf(
+              begrensHerhalingLaatsteCategorie(e.target.value)
+            )
+          }
+        />
+        keer
+      </label>
+    );
   }
 
   function startProfielBewerken(profiel) {
@@ -684,6 +760,7 @@ function AnalistDashboard({
 
         <div className="statusbalk herhaling-legende">
           <strong>Registratie dezelfde voertuigen per teldag</strong>
+          {renderHerhalingInstelling()}
           {herhalingCategorieen.map((categorie) => (
             <span key={categorie.key}>
               <span
@@ -947,6 +1024,7 @@ function AnalistDashboard({
 
         <div className="statusbalk herhaling-legende">
           <strong>Kleurcode</strong>
+          {renderHerhalingInstelling()}
           {herhalingCategorieen.map((categorie) => (
             <span key={categorie.key}>
               <span

@@ -28,6 +28,7 @@ function ZonesBeheer({
   wijzigZoneRegime,
   wijzigZoneMaxParkeerduur,
   wijzigZoneCapaciteit,
+  verplaatsZone,
   parkeerRegimes,
   regimesMetMaxDuur,
   bewerkmodusZoneId,
@@ -80,6 +81,7 @@ function ZonesBeheer({
         wijzigZoneRegime={wijzigZoneRegime}
         wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
         wijzigZoneCapaciteit={wijzigZoneCapaciteit}
+        verplaatsZone={verplaatsZone}
         parkeerRegimes={parkeerRegimes}
         regimesMetMaxDuur={regimesMetMaxDuur}
         bewerkmodusZoneId={bewerkmodusZoneId}

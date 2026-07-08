@@ -283,7 +283,7 @@ function ParkeerKaart({
           const isGrijzeZone = kaartKleur.toLowerCase() === "#9ca3af";
           const vulKleur = isBeheerder ? "#9ca3af" : kaartKleur;
           const randKleur = isBeheerder || isGrijzeZone ? "#111827" : kaartKleur;
-          const toonClusterHighlight = isInActieveCluster && !isBeheerder;
+          const toonClusterHighlight = isInActieveCluster;
           const toonZoneHighlight = benadrukteZoneId === zone.id;
 
           return (
@@ -316,11 +316,6 @@ function ParkeerKaart({
               <Popup>
                 <strong>{zone.naam}</strong>
                 <br />
-                Telmoment:{" "}
-                {isGemiddelde
-                  ? "Gemiddelde over alle telmomenten"
-                  : telmomentLabel(actiefTelmoment)}
-                <br />
                 Capaciteit: {zone.capaciteit}
                 <br />
                 Regime: {zone.parkeerRegime || "vrij parkeren"}
@@ -331,13 +326,24 @@ function ParkeerKaart({
                     <br />
                   </>
                 )}
-                {isGemiddelde ? "Gemiddeld aantal voertuigen" : "Voertuigen"}:{" "}
-                {isGemiddelde ? aantal.toFixed(1).replace(".", ",") : aantal}
-                <br />
-                {isGemiddelde
-                  ? "Gemiddelde bezettingsgraad"
-                  : "Bezettingsgraad"}
-                : {bezettingsgraad}%
+                {!isBeheerder && (
+                  <>
+                    Telmoment:{" "}
+                    {isGemiddelde
+                      ? "Gemiddelde over alle telmomenten"
+                      : telmomentLabel(actiefTelmoment)}
+                    <br />
+                    {isGemiddelde
+                      ? "Gemiddeld aantal voertuigen"
+                      : "Voertuigen"}
+                    : {isGemiddelde ? aantal.toFixed(1).replace(".", ",") : aantal}
+                    <br />
+                    {isGemiddelde
+                      ? "Gemiddelde bezettingsgraad"
+                      : "Bezettingsgraad"}
+                    : {bezettingsgraad}%
+                  </>
+                )}
               </Popup>
             </Polygon>
           );

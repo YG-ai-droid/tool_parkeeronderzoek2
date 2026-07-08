@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const MAX_NUMMERPLAAT_LENGTE = 20;
 
@@ -112,6 +112,7 @@ function ZoneLijst({
   wijzigZoneRegime,
   wijzigZoneMaxParkeerduur,
   wijzigZoneCapaciteit,
+  verplaatsZone,
   parkeerRegimes = [],
   regimesMetMaxDuur = [],
   bewerkmodusZoneId,
@@ -121,6 +122,26 @@ function ZoneLijst({
 }) {
   const [luisterendeZoneId, setLuisterendeZoneId] = useState(null);
   const [spraakMelding, setSpraakMelding] = useState("");
+  const [herschikZoneId, setHerschikZoneId] = useState(null);
+  const langDrukkenTimerRef = useRef(null);
+  const kanHerschikken = isBeheerder || isInvuller;
+
+  function stopLangDrukkenTimer() {
+    if (!langDrukkenTimerRef.current) return;
+    clearTimeout(langDrukkenTimerRef.current);
+    langDrukkenTimerRef.current = null;
+  }
+
+  function startLangDrukken(zoneId) {
+    if (!kanHerschikken) return;
+
+    stopLangDrukkenTimer();
+    langDrukkenTimerRef.current = setTimeout(() => {
+      setHerschikZoneId(zoneId);
+      setActieveZoneId(zoneId);
+      langDrukkenTimerRef.current = null;
+    }, 650);
+  }
 
   function dicteerNummerplaat(zoneId) {
     const SpeechRecognition =
@@ -166,8 +187,9 @@ function ZoneLijst({
 
   return (
     <div className="zone-grid">
-      {zones.map((zone) => {
+      {zones.map((zone, index) => {
         const isOpen = actieveZoneId === zone.id;
+        const isHerschikZone = herschikZoneId === zone.id;
         const nummerplaten = krijgNummerplaten(zone);
         const voorgesteldeNummerplaten = isInvuller
           ? krijgVoorgesteldeNummerplaten(zone)
@@ -183,13 +205,22 @@ function ZoneLijst({
           <div
             className={`zone-card ${
               isBeheerder ? "beheer-zone-card" : bepaalKleur(bezettingsgraad)
-            } ${isOpen ? "actief open" : "gesloten"}`}
+            } ${isOpen ? "actief open" : "gesloten"} ${
+              isHerschikZone ? "herschikken" : ""
+            }`}
             key={zone.id}
           >
             <button
               className="zone-header"
               onClick={() => selecteerZone(zone.id)}
               onDoubleClick={() => toggleZoneOpen(zone.id)}
+              onPointerDown={() => startLangDrukken(zone.id)}
+              onPointerUp={stopLangDrukkenTimer}
+              onPointerLeave={stopLangDrukkenTimer}
+              onPointerCancel={stopLangDrukkenTimer}
+              onContextMenu={(e) => {
+                if (kanHerschikken) e.preventDefault();
+              }}
             >
               <span>
                 <strong>{zone.naam}</strong>
@@ -215,6 +246,38 @@ function ZoneLijst({
 
             {isOpen && (
               <div className="zone-inhoud">
+                {kanHerschikken && isHerschikZone && (
+                  <div className="zone-volgorde-hint">
+                    <span>Volgorde aanpassen</span>
+                    <div className="volgorde-knoppen">
+                      <button
+                        type="button"
+                        aria-label="Zone omhoog verplaatsen"
+                        title="Zone omhoog verplaatsen"
+                        disabled={index === 0}
+                        onClick={() => verplaatsZone?.(zone.id, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Zone omlaag verplaatsen"
+                        title="Zone omlaag verplaatsen"
+                        disabled={index === zones.length - 1}
+                        onClick={() => verplaatsZone?.(zone.id, 1)}
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHerschikZoneId(null)}
+                      >
+                        Klaar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {!isBeheerder && (
                   <p>
                     Telmoment:{" "}

@@ -90,6 +90,8 @@ const MAX_TELMOMENTEN = 500;
 const MAX_NUMMERPLATEN_PER_TELLING = 5000;
 const MAX_TEKST_LENGTE = 120;
 const MAX_NUMMERPLAAT_LENGTE = 20;
+const MAX_EXCEL_GROOTTE_BYTES = 5 * 1024 * 1024;
+const EXCEL_TEMPLATE_KOLOMMEN = 9;
 
 function beperkTekst(waarde, fallback = "") {
   return String(waarde ?? fallback).trim().slice(0, MAX_TEKST_LENGTE);
@@ -103,6 +105,106 @@ function normaliseerNummerplaat(waarde) {
     .slice(0, MAX_NUMMERPLAAT_LENGTE);
 }
 
+function isVersleuteldeNummerplaat(waarde) {
+  return /^ENC[A-F0-9]{16}$/.test(normaliseerNummerplaat(waarde));
+}
+
+function escapeXml(waarde) {
+  return String(waarde ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function maakExcelCel(waarde, type = "String") {
+  return `<Cell><Data ss:Type="${type}">${escapeXml(waarde)}</Data></Cell>`;
+}
+
+function maakExcelRij(waarden, type = "String") {
+  return `<Row>${waarden.map((waarde) => maakExcelCel(waarde, type)).join("")}</Row>`;
+}
+
+function normaliseerExcelSleutel(waarde) {
+  return String(waarde ?? "").trim().toLowerCase();
+}
+
+function maakTelmomentExcelSleutel(telmoment) {
+  return [
+    normaliseerExcelSleutel(telmoment.naam),
+    normaliseerExcelSleutel(formatBelgischeDatumOptioneel(telmoment.datum)),
+    normaliseerExcelSleutel(telmoment.tijdstip),
+  ].join("::");
+}
+
+function maakZoneExcelSleutel(zone) {
+  return [
+    normaliseerExcelSleutel(zone.naam),
+    normaliseerExcelSleutel(zone.capaciteit),
+    normaliseerExcelSleutel(zone.parkeerRegime || "vrij parkeren"),
+  ].join("::");
+}
+
+function maakExcelTemplateXml({ projectNaam, telmomenten, zones }) {
+  const rijen = [
+    maakExcelRij([
+      "Project",
+      "Telmoment",
+      "Datum",
+      "Tijdstip",
+      "Tellocatie",
+      "Capaciteit",
+      "Parkeerregime",
+      "Parkeervak",
+      "Nummerplaat",
+    ]),
+  ];
+
+  telmomenten.forEach((telmoment) => {
+    zones.forEach((zone) => {
+      const aantalVakjes = Math.min(
+        MAX_NUMMERPLATEN_PER_TELLING,
+        Math.max(10, Math.ceil(Number(zone.capaciteit || 0) * 1.15), Number(zone.capaciteit || 0) + 5)
+      );
+
+      for (let index = 1; index <= aantalVakjes; index += 1) {
+        rijen.push(
+          maakExcelRij([
+            projectNaam,
+            telmoment.naam,
+            formatBelgischeDatumOptioneel(telmoment.datum),
+            telmoment.tijdstip,
+            zone.naam,
+            zone.capaciteit,
+            zone.parkeerRegime || "vrij parkeren",
+            index,
+            "",
+          ])
+        );
+      }
+    });
+  });
+
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="kop">
+      <Font ss:Bold="1"/>
+      <Interior ss:Color="#D9EAF7" ss:Pattern="Solid"/>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="Nummerplaten">
+    <Table ss:ExpandedColumnCount="${EXCEL_TEMPLATE_KOLOMMEN}" ss:ExpandedRowCount="${rijen.length}">
+      ${rijen.join("\n      ")}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+}
+
 function sanitiseerBestandsnaam(waarde) {
   return String(waarde ?? "project")
     .toLowerCase()
@@ -110,6 +212,12 @@ function sanitiseerBestandsnaam(waarde) {
     .replace(/[^a-z0-9-_]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "project";
+}
+
+function maakEncryptieSalt() {
+  const waarden = new Uint8Array(16);
+  crypto.getRandomValues(waarden);
+  return Array.from(waarden, (waarde) => waarde.toString(16).padStart(2, "0")).join("");
 }
 
 function normaliseerId(waarde, fallback) {
@@ -282,6 +390,7 @@ function maakLeegProjectData() {
     analyseObjectId: standaardZones[0].id,
     actiefProfielId: null,
     analistRegimeFilter: "",
+    nummerplaatEncryptieSalt: "",
   };
 }
 
@@ -339,6 +448,10 @@ function normaliseerParkeerProfielen(parkeerProfielen) {
       ? Math.max(1, Math.round(Number(profiel.maxDuur) || 1))
       : "",
   }));
+}
+
+function normaliseerEncryptieSalt(waarde) {
+  return /^[a-f0-9]{32}$/i.test(String(waarde || "")) ? String(waarde) : "";
 }
 
 function normaliseerProjectData(data) {
@@ -418,6 +531,9 @@ function normaliseerProjectData(data) {
     analistRegimeFilter: parkeerRegimes.includes(data?.analistRegimeFilter)
       ? data.analistRegimeFilter
       : "",
+    nummerplaatEncryptieSalt: normaliseerEncryptieSalt(
+      data?.nummerplaatEncryptieSalt
+    ),
   };
 }
 
@@ -602,6 +718,9 @@ function App() {
   const [analistRegimeFilter, setAnalistRegimeFilter] = useState(() => {
     return eersteProjectData.analistRegimeFilter;
   });
+  const [nummerplaatEncryptieSalt, setNummerplaatEncryptieSalt] = useState(() => {
+    return eersteProjectData.nummerplaatEncryptieSalt;
+  });
 
   const [nieuweClusterNaam, setNieuweClusterNaam] = useState("");
 
@@ -628,6 +747,7 @@ function App() {
       analyseObjectId,
       actiefProfielId,
       analistRegimeFilter,
+      nummerplaatEncryptieSalt,
     });
   }, [
     kleurGrenzen,
@@ -646,6 +766,7 @@ function App() {
     analyseObjectId,
     actiefProfielId,
     analistRegimeFilter,
+    nummerplaatEncryptieSalt,
   ]);
 
   function laadProjectData(data) {
@@ -668,6 +789,7 @@ function App() {
     setAnalyseObjectId(projectData.analyseObjectId);
     setActiefProfielId(projectData.actiefProfielId);
     setAnalistRegimeFilter(projectData.analistRegimeFilter);
+    setNummerplaatEncryptieSalt(projectData.nummerplaatEncryptieSalt);
     setNieuweZoneNaam("");
     setNieuweCapaciteit("");
     setNieuweClusterNaam("");
@@ -724,6 +846,7 @@ function App() {
     analyseObjectId,
     actiefProfielId,
     analistRegimeFilter,
+    nummerplaatEncryptieSalt,
     actiefProjectId,
     maakActieveProjectData,
   ]);
@@ -1360,6 +1483,25 @@ function App() {
     );
   }
 
+  function verplaatsZone(zoneId, richting) {
+    if (!isBeheerder && !isInvuller) return;
+
+    setZones((huidigeZones) => {
+      const huidigeIndex = huidigeZones.findIndex((zone) => zone.id === zoneId);
+      if (huidigeIndex === -1) return huidigeZones;
+
+      const nieuweIndex = huidigeIndex + richting;
+      if (nieuweIndex < 0 || nieuweIndex >= huidigeZones.length) {
+        return huidigeZones;
+      }
+
+      const nieuweZones = [...huidigeZones];
+      const [zone] = nieuweZones.splice(huidigeIndex, 1);
+      nieuweZones.splice(nieuweIndex, 0, zone);
+      return nieuweZones;
+    });
+  }
+
   function downloadBackup() {
     if (!isBeheerder) return;
 
@@ -1386,6 +1528,7 @@ function App() {
       analyseObjectId,
       actiefProfielId,
       analistRegimeFilter,
+      nummerplaatEncryptieSalt,
       kleurGrenzen,
     };
 
@@ -1527,6 +1670,300 @@ function App() {
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function downloadExcelInvulblad() {
+    if (!isBeheerder && !isInvuller) return;
+
+    if (telmomenten.length === 0 || zones.length === 0) {
+      alert("Maak eerst minstens een telmoment en een zone aan.");
+      return;
+    }
+
+    const xml = maakExcelTemplateXml({
+      projectNaam: actiefProject.naam,
+      telmomenten,
+      zones,
+    });
+    const blob = new Blob([xml], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `nummerplaten-${sanitiseerBestandsnaam(
+      actiefProject.naam
+    )}-invulblad.xls`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function leesExcelWerkbladRijen(xmlTekst) {
+    const documentXml = new DOMParser().parseFromString(xmlTekst, "text/xml");
+    const parserFout = documentXml.querySelector("parsererror");
+
+    if (parserFout) {
+      throw new Error(
+        "Dit bestand kan niet gelezen worden. Gebruik het Excel-invulblad dat door de tool werd aangemaakt en sla het opnieuw op als .xls."
+      );
+    }
+
+    const worksheets = Array.from(documentXml.getElementsByTagName("*")).filter(
+      (element) => element.localName === "Worksheet"
+    );
+    const nummerplatenSheet =
+      worksheets.find(
+        (sheet) =>
+          sheet.getAttribute("ss:Name") === "Nummerplaten" ||
+          sheet.getAttribute("Name") === "Nummerplaten"
+      ) || worksheets[0];
+
+    if (!nummerplatenSheet) {
+      throw new Error("Het Excel-bestand bevat geen leesbaar werkblad.");
+    }
+
+    const rows = Array.from(nummerplatenSheet.getElementsByTagName("*")).filter(
+      (element) => element.localName === "Row"
+    );
+
+    return rows.map((row) => {
+      const waarden = [];
+      let celIndex = 0;
+      const cells = Array.from(row.children).filter(
+        (element) => element.localName === "Cell"
+      );
+
+      cells.forEach((cell) => {
+        const explicieteIndex =
+          Number(cell.getAttribute("ss:Index") || cell.getAttribute("Index")) - 1;
+        if (Number.isInteger(explicieteIndex) && explicieteIndex >= 0) {
+          celIndex = explicieteIndex;
+        }
+
+        const dataElement = Array.from(cell.getElementsByTagName("*")).find(
+          (element) => element.localName === "Data"
+        );
+        waarden[celIndex] = dataElement?.textContent?.trim() || "";
+        celIndex += 1;
+      });
+
+      return waarden;
+    });
+  }
+
+  function importeerExcelNummerplaten(event) {
+    if (!isBeheerder && !isInvuller) return;
+
+    const bestand = event.target.files[0];
+    if (!bestand) return;
+
+    if (bestand.size > MAX_EXCEL_GROOTTE_BYTES) {
+      alert("Dit Excel-bestand is te groot om veilig te importeren.");
+      event.target.value = "";
+      return;
+    }
+
+    const lezer = new FileReader();
+
+    lezer.onload = function (e) {
+      try {
+        const rijen = leesExcelWerkbladRijen(String(e.target.result || ""));
+        const headers = (rijen[0] || []).map((waarde) =>
+          normaliseerExcelSleutel(waarde)
+        );
+        const gebruiktOudIdFormaat =
+          headers.includes("telmoment id") && headers.includes("zone id");
+        const telmomentenPerSleutel = new Map(
+          telmomenten.map((telmoment) => [
+            maakTelmomentExcelSleutel(telmoment),
+            telmoment,
+          ])
+        );
+        const zonesPerSleutel = new Map(
+          zones.map((zone) => [maakZoneExcelSleutel(zone), zone])
+        );
+        const zonesPerNaam = new Map(
+          zones.map((zone) => [normaliseerExcelSleutel(zone.naam), zone])
+        );
+        const imports = new Map();
+        let gelezenNummerplaten = 0;
+
+        rijen.slice(1).forEach((rij) => {
+          const nummerplaat = normaliseerNummerplaat(
+            gebruiktOudIdFormaat ? rij[9] : rij[8]
+          );
+
+          if (!nummerplaat) return;
+
+          const telmoment = gebruiktOudIdFormaat
+            ? telmomenten.find(
+                (huidigTelmoment) =>
+                  huidigTelmoment.id === normaliseerId(rij[1], null)
+              )
+            : telmomentenPerSleutel.get(
+                [
+                  normaliseerExcelSleutel(rij[1]),
+                  normaliseerExcelSleutel(rij[2]),
+                  normaliseerExcelSleutel(rij[3]),
+                ].join("::")
+              );
+          const zone = gebruiktOudIdFormaat
+            ? zones.find(
+                (huidigeZone) => huidigeZone.id === normaliseerId(rij[5], null)
+              )
+            : zonesPerSleutel.get(
+                [
+                  normaliseerExcelSleutel(rij[4]),
+                  normaliseerExcelSleutel(rij[5]),
+                  normaliseerExcelSleutel(rij[6]),
+                ].join("::")
+              ) || zonesPerNaam.get(normaliseerExcelSleutel(rij[4]));
+
+          if (!telmoment || !zone) return;
+
+          const sleutel = `${zone.id}::${telmoment.id}`;
+          if (!imports.has(sleutel)) imports.set(sleutel, new Set());
+          imports.get(sleutel).add(nummerplaat);
+          gelezenNummerplaten += 1;
+        });
+
+        if (imports.size === 0) {
+          alert(
+            "Er werden geen geldige nummerplaten gevonden. Vul de kolom 'Nummerplaat' in het door de tool aangemaakte Excel-bestand in."
+          );
+          return;
+        }
+
+        let toegevoegd = 0;
+
+        setZones(
+          zones.map((zone) => {
+            const nieuweTellingen = { ...(zone.tellingen || {}) };
+
+            telmomenten.forEach((telmoment) => {
+              const sleutel = `${zone.id}::${telmoment.id}`;
+              const nieuwePlaten = imports.get(sleutel);
+              if (!nieuwePlaten) return;
+
+              const bestaandePlaten = new Set(
+                nieuweTellingen[telmoment.id] || []
+              );
+
+              nieuwePlaten.forEach((plaat) => {
+                if (!bestaandePlaten.has(plaat)) {
+                  bestaandePlaten.add(plaat);
+                  toegevoegd += 1;
+                }
+              });
+
+              nieuweTellingen[telmoment.id] = Array.from(bestaandePlaten).slice(
+                0,
+                MAX_NUMMERPLATEN_PER_TELLING
+              );
+            });
+
+            return { ...zone, tellingen: nieuweTellingen };
+          })
+        );
+
+        alert(
+          `${toegevoegd} nummerplaten toegevoegd. ${Math.max(
+            gelezenNummerplaten - toegevoegd,
+            0
+          )} dubbele of reeds aanwezige registraties werden overgeslagen.`
+        );
+      } catch (fout) {
+        alert(
+          fout instanceof Error
+            ? fout.message
+            : "Het Excel-bestand kon niet worden ingelezen."
+        );
+      }
+    };
+
+    lezer.readAsText(bestand);
+    event.target.value = "";
+  }
+
+  async function versleutelPlaat(plaat, salt) {
+    const data = new TextEncoder().encode(`${salt}:${normaliseerNummerplaat(plaat)}`);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray
+      .map((waarde) => waarde.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+
+    return `ENC${hash.slice(0, 16)}`;
+  }
+
+  async function versleutelNummerplaten() {
+    if (!isInvuller) return;
+
+    if (!crypto.subtle) {
+      alert("Versleutelen wordt niet ondersteund door deze browser.");
+      return;
+    }
+
+    const uniekePlaten = new Set();
+    zones.forEach((zone) => {
+      Object.values(zone.tellingen || {}).forEach((platen) => {
+        if (!Array.isArray(platen)) return;
+        platen.forEach((plaat) => {
+          const normalePlaat = normaliseerNummerplaat(plaat);
+          if (normalePlaat && !isVersleuteldeNummerplaat(normalePlaat)) {
+            uniekePlaten.add(normalePlaat);
+          }
+        });
+      });
+    });
+
+    if (uniekePlaten.size === 0) {
+      alert("Er zijn geen niet-versleutelde nummerplaten gevonden.");
+      return;
+    }
+
+    const zeker = confirm(
+      "Dit vervangt de leesbare nummerplaten in dit project door versleutelde codes. Dezelfde nummerplaat krijgt telkens dezelfde code. Doorgaan?"
+    );
+    if (!zeker) return;
+
+    const salt = nummerplaatEncryptieSalt || maakEncryptieSalt();
+    const versleuteldePlaten = new Map();
+
+    for (const plaat of uniekePlaten) {
+      versleuteldePlaten.set(plaat, await versleutelPlaat(plaat, salt));
+    }
+
+    setNummerplaatEncryptieSalt(salt);
+    setZones(
+      zones.map((zone) => {
+        const nieuweTellingen = Object.fromEntries(
+          Object.entries(zone.tellingen || {}).map(([telmomentId, platen]) => [
+            telmomentId,
+            Array.isArray(platen)
+              ? [
+                  ...new Set(
+                    platen.map((plaat) => {
+                      const normalePlaat = normaliseerNummerplaat(plaat);
+                      return (
+                        versleuteldePlaten.get(normalePlaat) ||
+                        normalePlaat
+                      );
+                    })
+                  ),
+                ]
+              : [],
+          ])
+        );
+
+        return { ...zone, tellingen: nieuweTellingen, invoer: "" };
+      })
+    );
+
+    alert(`${uniekePlaten.size} unieke nummerplaten versleuteld.`);
   }
 
   function wisAlleGegevens() {
@@ -1734,27 +2171,49 @@ function App() {
           {isBeheerder && (
             <>
               <div className="beheer-knoppen">
-                <button className="reset-knop" onClick={wisAlleGegevens}>
-                  Wis alle gegevens
-                </button>
+                <div className="beheer-knopgroep">
+                  <button className="reset-knop" onClick={wisAlleGegevens}>
+                    Wis alle gegevens
+                  </button>
+                </div>
 
-                <button onClick={downloadBackup}>Download back-up</button>
+                <div className="beheer-knopgroep">
+                  <button onClick={downloadBackup}>Download back-up</button>
 
-                <button onClick={exporteerCSV}>Exporteer CSV</button>
+                  <label className="import-knop">
+                    Back-up importeren
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={importeerBackup}
+                      hidden
+                    />
+                  </label>
+                </div>
 
-                <button onClick={() => exporteerCSV({ anoniem: true })}>
-                  Exporteer CSV anoniem
-                </button>
+                <div className="beheer-knopgroep">
+                  <button onClick={exporteerCSV}>Exporteer CSV</button>
 
-                <label className="import-knop">
-                  Back-up importeren
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={importeerBackup}
-                    hidden
-                  />
-                </label>
+                  <button onClick={() => exporteerCSV({ anoniem: true })}>
+                    CSV anoniem
+                  </button>
+                </div>
+
+                <div className="beheer-knopgroep">
+                  <button onClick={downloadExcelInvulblad}>
+                    Excel invulblad
+                  </button>
+
+                  <label className="import-knop">
+                    Excel importeren
+                    <input
+                      type="file"
+                      accept=".xls,.xml,application/vnd.ms-excel,text/xml"
+                      onChange={importeerExcelNummerplaten}
+                      hidden
+                    />
+                  </label>
+                </div>
               </div>
 
               <KleurcodeInstellingen
@@ -1767,7 +2226,30 @@ function App() {
             </>
           )}
 
-          {isInvuller && telmomentSelectie}
+          {isInvuller && (
+            <>
+              {telmomentSelectie}
+              <div className="beheer-knoppen excel-knoppen">
+                <button onClick={downloadExcelInvulblad}>
+                  Excel invulblad
+                </button>
+
+                <label className="import-knop">
+                  Excel importeren
+                  <input
+                    type="file"
+                    accept=".xls,.xml,application/vnd.ms-excel,text/xml"
+                    onChange={importeerExcelNummerplaten}
+                    hidden
+                  />
+                </label>
+
+                <button onClick={versleutelNummerplaten}>
+                  Nummerplaten versleutelen
+                </button>
+              </div>
+            </>
+          )}
 
           {isAnalist && (
             <>
@@ -1872,6 +2354,7 @@ function App() {
               wijzigZoneRegime={wijzigZoneRegime}
               wijzigZoneMaxParkeerduur={wijzigZoneMaxParkeerduur}
               wijzigZoneCapaciteit={wijzigZoneCapaciteit}
+              verplaatsZone={verplaatsZone}
               parkeerRegimes={parkeerRegimes}
               regimesMetMaxDuur={regimesMetMaxDuur}
               bewerkmodusZoneId={bewerkmodusZoneId}
@@ -1900,6 +2383,7 @@ function App() {
               toggleBewerkmodus={toggleBewerkmodus}
               wisPolygoon={wisPolygoon}
               verwijderZone={verwijderZone}
+              verplaatsZone={verplaatsZone}
               bewerkmodusZoneId={bewerkmodusZoneId}
               wijzigInvoer={wijzigInvoer}
               voegNummerplaatToe={voegNummerplaatToe}
