@@ -1027,9 +1027,10 @@ button:disabled {
 
 .taart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   gap: 16px;
   margin-bottom: 20px;
+  min-width: 0;
 }
 
 .taartkaart {
@@ -1038,6 +1039,9 @@ button:disabled {
   padding: 16px;
   border: 1px solid #e5e7eb;
   text-align: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .taartkaart.klikbaar {
@@ -1056,22 +1060,25 @@ button:disabled {
 }
 
 .taartdiagram {
-  width: 160px;
-  height: 160px;
+  width: min(160px, 100%);
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   margin: 0 auto;
   display: grid;
   place-items: center;
+  position: relative;
 }
 
 .taart-midden {
-  width: 84px;
-  height: 84px;
+  width: 52.5%;
+  aspect-ratio: 1 / 1;
   background: white;
   border-radius: 50%;
   display: grid;
   place-items: center;
   font-size: 14px;
+  min-width: 58px;
+  max-width: 84px;
 }
 
 .taart-midden span {
@@ -1113,6 +1120,44 @@ button:disabled {
 .aslabel {
   font-size: 10px;
   fill: #4b5563;
+}
+
+.lijngrafiek-puntgroep {
+  outline: none;
+}
+
+.lijngrafiek-punt {
+  cursor: pointer;
+}
+
+.lijngrafiek-puntgroep:hover .lijngrafiek-punt,
+.lijngrafiek-puntgroep:focus .lijngrafiek-punt {
+  r: 6;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.lijngrafiek-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.lijngrafiek-puntgroep:hover .lijngrafiek-tooltip,
+.lijngrafiek-puntgroep:focus .lijngrafiek-tooltip {
+  opacity: 1;
+}
+
+.lijngrafiek-tooltip rect {
+  fill: white;
+  stroke: #cbd5e1;
+  filter: drop-shadow(0 3px 8px rgba(15, 23, 42, 0.18));
+}
+
+.lijngrafiek-tooltip text {
+  fill: #111827;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .legende {
@@ -1578,7 +1623,7 @@ button:disabled {
 }
 
 .taart-grid-overzicht {
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
 }
 
 .taart-grid-overzicht .taartkaart {
@@ -1821,5 +1866,13 @@ button:disabled {
 
   .taart-grid-overzicht {
     grid-template-columns: 1fr;
+  }
+
+  .taartdiagram {
+    width: min(150px, 100%);
+  }
+
+  .taart-midden {
+    font-size: 13px;
   }
 }

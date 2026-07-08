@@ -122,15 +122,46 @@ function Lijngrafiek({
 
                 {telmomenten.map((telmoment, index) => {
                   const waarde = krijgNummerplaten(zone, telmoment.id).length;
+                  const x = xPos(index);
+                  const y = yPos(waarde);
+                  const tooltipBreedte = 154;
+                  const tooltipHoogte = 46;
+                  const tooltipX = Math.min(
+                    Math.max(x - tooltipBreedte / 2, margeLinks),
+                    breedte - margeRechts - tooltipBreedte
+                  );
+                  const tooltipY = Math.max(y - tooltipHoogte - 12, margeBoven);
 
                   return (
-                    <circle
+                    <g
+                      className="lijngrafiek-puntgroep"
                       key={telmoment.id}
-                      cx={xPos(index)}
-                      cy={yPos(waarde)}
-                      r="4"
-                      fill={kleur}
-                    />
+                      tabIndex={0}
+                    >
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r="4"
+                        fill={kleur}
+                        className="lijngrafiek-punt"
+                      />
+                      <g className="lijngrafiek-tooltip">
+                        <rect
+                          x={tooltipX}
+                          y={tooltipY}
+                          width={tooltipBreedte}
+                          height={tooltipHoogte}
+                          rx="8"
+                        />
+                        <text x={tooltipX + 10} y={tooltipY + 18}>
+                          {zone.naam}
+                        </text>
+                        <text x={tooltipX + 10} y={tooltipY + 35}>
+                          {formatBelgischeDatum(telmoment.datum)}{" "}
+                          {telmoment.tijdstip}: {waarde}
+                        </text>
+                      </g>
+                    </g>
                   );
                 })}
               </g>

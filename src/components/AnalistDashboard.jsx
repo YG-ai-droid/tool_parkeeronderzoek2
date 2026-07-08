@@ -16,8 +16,7 @@ const leegProfiel = {
 const GEMIDDELDE_TELMOMENT_ID = "gemiddelde";
 const HERHALING_MIN_LAATSTE_CATEGORIE = 2;
 const HERHALING_MAX_LAATSTE_CATEGORIE = 10;
-const HERHALING_TAART_DIAMETER = 160;
-const HERHALING_LABEL_STRAAL = 55;
+const HERHALING_LABEL_STRAAL_PERCENTAGE = 34;
 const herhalingKleuren = [
   "#94a3b8",
   "#38bdf8",
@@ -298,13 +297,11 @@ function AnalistDashboard({
         start += aandeel;
 
         const hoek = midden * 2 * Math.PI - Math.PI / 2;
-        const centrum = HERHALING_TAART_DIAMETER / 2;
-
         return {
           key: categorie.key,
           aantal,
-          x: centrum + Math.cos(hoek) * HERHALING_LABEL_STRAAL,
-          y: centrum + Math.sin(hoek) * HERHALING_LABEL_STRAAL,
+          x: 50 + Math.cos(hoek) * HERHALING_LABEL_STRAAL_PERCENTAGE,
+          y: 50 + Math.sin(hoek) * HERHALING_LABEL_STRAAL_PERCENTAGE,
         };
       });
   }
@@ -800,8 +797,8 @@ function AnalistDashboard({
                       <span
                         className="herhaling-segment-label"
                         style={{
-                          left: `${label.x}px`,
-                          top: `${label.y}px`,
+                          left: `${label.x}%`,
+                          top: `${label.y}%`,
                         }}
                         key={label.key}
                       >
@@ -1061,8 +1058,8 @@ function AnalistDashboard({
                       <span
                         className="herhaling-segment-label"
                         style={{
-                          left: `${label.x}px`,
-                          top: `${label.y}px`,
+                          left: `${label.x}%`,
+                          top: `${label.y}%`,
                         }}
                         key={label.key}
                       >
