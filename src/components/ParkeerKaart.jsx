@@ -38,6 +38,37 @@ function ZoomNaarProjectZones({ zones, actiefProjectId }) {
   return null;
 }
 
+function CentreerZonesKnop({ zones, tonen }) {
+  const map = useMap();
+
+  if (!tonen) return null;
+
+  function centreerOpZones() {
+    const punten = zones
+      .filter((zone) => zone.polygoon.length >= 3)
+      .flatMap((zone) => zone.polygoon);
+
+    if (punten.length === 0) {
+      alert("Er zijn nog geen zones met een polygoon om naar te centreren.");
+      return;
+    }
+
+    map.fitBounds(punten, {
+      padding: [40, 40],
+      maxZoom: 17,
+      animate: true,
+    });
+  }
+
+  return (
+    <div className="locatie-control zones-control">
+      <button type="button" onClick={centreerOpZones}>
+        Centreer kaart op zones
+      </button>
+    </div>
+  );
+}
+
 function MijnLocatieKnop({ isInvuller }) {
   const map = useMap();
   const [positie, setPositie] = useState(null);
@@ -243,6 +274,10 @@ function ParkeerKaart({
         <ZoomNaarProjectZones
           zones={zones}
           actiefProjectId={actiefProjectId}
+        />
+        <CentreerZonesKnop
+          zones={zones}
+          tonen={isBeheerder || isAnalist}
         />
         <MijnLocatieKnop isInvuller={isInvuller} />
 

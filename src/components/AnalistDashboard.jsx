@@ -256,6 +256,51 @@ function AnalistDashboard({
     return categorieTellingen;
   }
 
+  function telAaneengeslotenHerhaling(object, momenten, dataFunctie) {
+    const gesorteerdeMomenten = [...momenten].sort(vergelijkTelmomenten);
+    const indexPerTelmoment = new Map(
+      gesorteerdeMomenten.map((telmoment, index) => [telmoment.id, index])
+    );
+    const indexenPerPlaat = {};
+
+    gesorteerdeMomenten.forEach((telmoment) => {
+      dataFunctie(object, telmoment.id).forEach((registratie) => {
+        const sleutel =
+          typeof registratie === "object"
+            ? registratie.plaat || registratie.id
+            : registratie;
+
+        if (!indexenPerPlaat[sleutel]) indexenPerPlaat[sleutel] = new Set();
+        indexenPerPlaat[sleutel].add(indexPerTelmoment.get(telmoment.id));
+      });
+    });
+
+    const categorieTellingen = maakLegeHerhalingTellingen();
+
+    Object.values(indexenPerPlaat).forEach((indexSet) => {
+      const indexen = [...indexSet]
+        .filter((index) => Number.isFinite(index))
+        .sort((a, b) => a - b);
+      let langsteReeks = 0;
+      let huidigeReeks = 0;
+      let vorigeIndex = null;
+
+      indexen.forEach((index) => {
+        huidigeReeks = vorigeIndex === null || index !== vorigeIndex + 1
+          ? 1
+          : huidigeReeks + 1;
+        langsteReeks = Math.max(langsteReeks, huidigeReeks);
+        vorigeIndex = index;
+      });
+
+      if (langsteReeks > 0) {
+        categorieTellingen[categoriseerHerhaling(langsteReeks)] += 1;
+      }
+    });
+
+    return categorieTellingen;
+  }
+
   function maakHerhalingGradient(categorieTellingen) {
     const totaal = Object.values(categorieTellingen).reduce(
       (som, aantal) => som + aantal,
@@ -304,6 +349,68 @@ function AnalistDashboard({
           y: 50 + Math.sin(hoek) * HERHALING_LABEL_STRAAL_PERCENTAGE,
         };
       });
+  }
+
+  function krijgHerhalingTooltipRegels(categorieTellingen) {
+    const totaal = Object.values(categorieTellingen).reduce(
+      (som, aantal) => som + aantal,
+      0
+    );
+
+    return herhalingCategorieen
+      .filter((categorie) => (categorieTellingen[categorie.key] || 0) > 0)
+      .map((categorie) => {
+        const aantal = categorieTellingen[categorie.key] || 0;
+        const aandeel = totaal > 0 ? Math.round((aantal / totaal) * 100) : 0;
+        return `${categorie.label}: ${aantal} (${aandeel}%)`;
+      });
+  }
+
+  function renderHerhalingTaart({ key, titel, subtitel, categorieTellingen }) {
+    const totaal = Object.values(categorieTellingen).reduce(
+      (som, aantal) => som + aantal,
+      0
+    );
+    const tooltipRegels = krijgHerhalingTooltipRegels(categorieTellingen);
+
+    return (
+      <div className="taartkaart" key={key}>
+        <div className="taartkop">
+          <h3>{titel}</h3>
+          {subtitel && <p className="taart-subtitel">{subtitel}</p>}
+        </div>
+        <div
+          className="taartdiagram herhaling-taartdiagram"
+          title={tooltipRegels.join("\n")}
+          style={{
+            background: maakHerhalingGradient(categorieTellingen),
+          }}
+        >
+          <div className="taart-tooltip">
+            {tooltipRegels.length > 0 ? (
+              tooltipRegels.map((regel) => <span key={regel}>{regel}</span>)
+            ) : (
+              <span>Geen registraties</span>
+            )}
+          </div>
+          {krijgSegmentLabelPosities(categorieTellingen).map((label) => (
+            <span
+              className="herhaling-segment-label"
+              style={{
+                left: `${label.x}%`,
+                top: `${label.y}%`,
+              }}
+              key={label.key}
+            >
+              {label.aantal}
+            </span>
+          ))}
+          <div className="taart-midden">
+            <strong>{totaal}</strong>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   function berekenParkeerSessies() {
@@ -381,19 +488,91 @@ function AnalistDashboard({
   function matchtProfiel(sessie, profiel) {
     const minDuur = Number(profiel.minDuur) || 1;
     const maxDuur = Number(profiel.maxDuur) || Infinity;
+
+    return (
+      sessie.duurTelrondes >= minDuur &&
+      sessie.duurTelrondes <= maxDuur
+    );
+  }
+
+  function heeftVolledigTijdsvenster(profiel) {
+    return Boolean(profiel?.vensterStart && profiel?.vensterEinde);
+  }
+
+  function berekenProfielSessies(profiel) {
+    if (!profiel) return [];
+
+    if (!heeftVolledigTijdsvenster(profiel)) {
+      return berekenParkeerSessies().filter((sessie) =>
+        matchtProfiel(sessie, profiel)
+      );
+    }
+
+    const minDuur = Number(profiel.minDuur) || 1;
+    const maxDuur = Number(profiel.maxDuur) || Infinity;
     const vensterGroepen = krijgTelmomentGroepenInVenster(
       profiel.vensterStart,
       profiel.vensterEinde
     );
 
-    return (
-      sessie.duurTelrondes >= minDuur &&
-      sessie.duurTelrondes <= maxDuur &&
-      (vensterGroepen.length === 0 ||
-        vensterGroepen.some((groepIds) =>
-          groepIds.every((id) => sessie.telmomentIds.includes(id))
-        ))
+    if (vensterGroepen.length === 0) return [];
+
+    const telmomentenPerId = new Map(
+      telmomenten.map((telmoment) => [telmoment.id, telmoment])
     );
+    const profielSessies = [];
+
+    analyseZones.forEach((zone) => {
+      const registratiesPerPlaat = {};
+
+      vensterGroepen.flat().forEach((telmomentId) => {
+        krijgNummerplaten(zone, telmomentId).forEach((plaat) => {
+          if (!registratiesPerPlaat[plaat]) {
+            registratiesPerPlaat[plaat] = new Set();
+          }
+
+          registratiesPerPlaat[plaat].add(telmomentId);
+        });
+      });
+
+      Object.entries(registratiesPerPlaat).forEach(([plaat, telmomentIds]) => {
+        vensterGroepen.forEach((groepIds) => {
+          const duurTelrondes = groepIds.length;
+          const aanwezigInVolledigeGroep = groepIds.every((id) =>
+            telmomentIds.has(id)
+          );
+
+          if (
+            !aanwezigInVolledigeGroep ||
+            duurTelrondes < minDuur ||
+            duurTelrondes > maxDuur
+          ) {
+            return;
+          }
+
+          const eersteTelmoment = telmomentenPerId.get(groepIds[0]);
+          const laatsteTelmoment = telmomentenPerId.get(
+            groepIds[groepIds.length - 1]
+          );
+
+          profielSessies.push({
+            plaat,
+            zoneId: zone.id,
+            zoneNaam: zone.naam,
+            regime: zone.parkeerRegime || "vrij parkeren",
+            maxParkeerduur: zone.maxParkeerduur || "",
+            startIndex: null,
+            eindIndex: null,
+            eersteTelmoment,
+            laatsteTelmoment,
+            telmomentIds: groepIds,
+            duurTelrondes,
+          });
+        });
+      });
+    });
+
+    return profielSessies;
   }
 
   function tijdNaarMinuten(tijdstip) {
@@ -755,18 +934,20 @@ function AnalistDashboard({
           onSelectItem={analyseObjectType === "cluster" ? selecteerCluster : undefined}
         />
 
-        <div className="statusbalk herhaling-legende">
+        <div className="statusbalk herhaling-legende herhaling-legende-gesplitst">
           <strong>Registratie dezelfde voertuigen per teldag</strong>
-          {renderHerhalingInstelling()}
-          {herhalingCategorieen.map((categorie) => (
-            <span key={categorie.key}>
-              <span
-                className="legende-kleur"
-                style={{ background: categorie.kleur }}
-              />
-              {categorie.label}
-            </span>
-          ))}
+          <div className="herhaling-legende-regel">
+            {renderHerhalingInstelling()}
+            {herhalingCategorieen.map((categorie) => (
+              <span key={categorie.key}>
+                <span
+                  className="legende-kleur"
+                  style={{ background: categorie.kleur }}
+                />
+                {categorie.label}
+              </span>
+            ))}
+          </div>
         </div>
 
         <div className="taart-grid taart-grid-zones">
@@ -780,39 +961,44 @@ function AnalistDashboard({
               0
             );
 
-            return (
-              <div className="taartkaart" key={datum}>
-                <h3>{formatBelgischeDatum(datum)}</h3>
-                <p className="taart-subtitel">
-                  {totaal} unieke nummerplaten
-                </p>
-                <div
-                  className="taartdiagram herhaling-taartdiagram"
-                  style={{
-                    background: maakHerhalingGradient(categorieTellingen),
-                  }}
-                >
-                  {krijgSegmentLabelPosities(categorieTellingen).map(
-                    (label) => (
-                      <span
-                        className="herhaling-segment-label"
-                        style={{
-                          left: `${label.x}%`,
-                          top: `${label.y}%`,
-                        }}
-                        key={label.key}
-                      >
-                        {label.aantal}
-                      </span>
-                    )
-                  )}
-                  <div className="taart-midden">
-                    <strong>{totaal}</strong>
-                  </div>
-                </div>
-              </div>
-            );
+            return renderHerhalingTaart({
+              key: datum,
+              titel: formatBelgischeDatum(datum),
+              subtitel: `${totaal} unieke nummerplaten`,
+              categorieTellingen,
+            });
           })}
+        </div>
+
+        <div className="statusbalk herhaling-legende">
+          <strong>Aaneengesloten registraties</strong>
+          <span>Langste opeenvolgende reeks per nummerplaat</span>
+        </div>
+
+        <div className="taart-grid taart-grid-zones">
+          {renderHerhalingTaart({
+            key: "aaneengesloten-totaal",
+            titel: "Volledige telling",
+            subtitel: "Langste aaneengesloten reeks",
+            categorieTellingen: telAaneengeslotenHerhaling(
+              geselecteerdObject,
+              telmomenten,
+              krijgData
+            ),
+          })}
+
+          {Object.entries(datumGroepen).map(([datum, momenten]) =>
+            renderHerhalingTaart({
+              key: `aaneengesloten-${datum}`,
+              titel: formatBelgischeDatum(datum),
+              subtitel: "Aaneengesloten binnen teldag",
+              categorieTellingen: telAaneengeslotenHerhaling(
+                geselecteerdObject,
+                momenten,
+                krijgData
+              ),
+            })
+          )}
         </div>
       </section>
     );
@@ -822,9 +1008,8 @@ function AnalistDashboard({
     const actiefProfiel =
       parkeerProfielen.find((profiel) => profiel.id === actiefProfielId) ||
       parkeerProfielen[0];
-    const sessies = berekenParkeerSessies();
     const profielSessies = actiefProfiel
-      ? sessies.filter((sessie) => matchtProfiel(sessie, actiefProfiel))
+      ? berekenProfielSessies(actiefProfiel)
       : [];
     const profielResultatenPerZone = analyseZones
       .map((zone) => {
@@ -1019,18 +1204,20 @@ function AnalistDashboard({
           Registratie zelfde voertuigen over tellingen heen
         </h2>
 
-        <div className="statusbalk herhaling-legende">
+        <div className="statusbalk herhaling-legende herhaling-legende-gesplitst">
           <strong>Kleurcode</strong>
-          {renderHerhalingInstelling()}
-          {herhalingCategorieen.map((categorie) => (
-            <span key={categorie.key}>
-              <span
-                className="legende-kleur"
-                style={{ background: categorie.kleur }}
-              />
-              {categorie.label}
-            </span>
-          ))}
+          <div className="herhaling-legende-regel">
+            {renderHerhalingInstelling()}
+            {herhalingCategorieen.map((categorie) => (
+              <span key={categorie.key}>
+                <span
+                  className="legende-kleur"
+                  style={{ background: categorie.kleur }}
+                />
+                {categorie.label}
+              </span>
+            ))}
+          </div>
         </div>
 
         <div className="taart-grid taart-grid-zones">
@@ -1041,40 +1228,66 @@ function AnalistDashboard({
               0
             );
 
-            return (
-              <div className="taartkaart" key={zone.id}>
-                <h3>{zone.naam}</h3>
-                <p className="taart-subtitel">
-                  {totaal} unieke nummerplaten
-                </p>
-                <div
-                  className="taartdiagram herhaling-taartdiagram"
-                  style={{
-                    background: maakHerhalingGradient(categorieTellingen),
-                  }}
-                >
-                  {krijgSegmentLabelPosities(categorieTellingen).map(
-                    (label) => (
-                      <span
-                        className="herhaling-segment-label"
-                        style={{
-                          left: `${label.x}%`,
-                          top: `${label.y}%`,
-                        }}
-                        key={label.key}
-                      >
-                        {label.aantal}
-                      </span>
-                    )
-                  )}
-                  <div className="taart-midden">
-                    <strong>{totaal}</strong>
-                  </div>
-                </div>
-              </div>
-            );
+            return renderHerhalingTaart({
+              key: zone.id,
+              titel: zone.naam,
+              subtitel: `${totaal} unieke nummerplaten`,
+              categorieTellingen,
+            });
           })}
         </div>
+
+        <div className="statusbalk herhaling-legende">
+          <strong>Aaneengesloten registraties volledige telling</strong>
+          <span>Langste opeenvolgende reeks per nummerplaat</span>
+        </div>
+
+        <div className="taart-grid taart-grid-zones">
+          {analyseZones.map((zone) =>
+            renderHerhalingTaart({
+              key: `aaneengesloten-totaal-${zone.id}`,
+              titel: zone.naam,
+              subtitel: "Volledige telling",
+              categorieTellingen: telAaneengeslotenHerhaling(
+                zone,
+                telmomenten,
+                krijgNummerplaten
+              ),
+            })
+          )}
+        </div>
+
+        <div className="statusbalk herhaling-legende">
+          <strong>Aaneengesloten registraties per teldag</strong>
+        </div>
+
+        {Object.entries(
+          telmomenten.reduce((groepen, telmoment) => {
+            const datum = telmoment.datum || "geen datum";
+            return {
+              ...groepen,
+              [datum]: [...(groepen[datum] || []), telmoment],
+            };
+          }, {})
+        ).map(([datum, momenten]) => (
+          <div className="herhaling-dagblok" key={datum}>
+            <h3>{formatBelgischeDatum(datum)}</h3>
+            <div className="taart-grid taart-grid-zones">
+              {analyseZones.map((zone) =>
+                renderHerhalingTaart({
+                  key: `aaneengesloten-${datum}-${zone.id}`,
+                  titel: zone.naam,
+                  subtitel: "Binnen deze teldag",
+                  categorieTellingen: telAaneengeslotenHerhaling(
+                    zone,
+                    momenten,
+                    krijgNummerplaten
+                  ),
+                })
+              )}
+            </div>
+          </div>
+        ))}
       </section>
     );
   }

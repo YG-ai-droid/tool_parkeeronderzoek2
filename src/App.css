@@ -54,6 +54,13 @@ h1 {
   align-items: stretch;
 }
 
+.banner-acties {
+  margin-left: auto;
+  justify-content: flex-end;
+  align-self: flex-start;
+  flex: 0 0 auto;
+}
+
 .vaste-banner .statusbalk {
   margin-bottom: 0;
   padding: 8px 10px;
@@ -176,6 +183,9 @@ h1 {
 }
 
 .banner-toggle-kaart {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   align-content: center;
 }
 
@@ -909,6 +919,24 @@ button:disabled {
   gap: 6px;
 }
 
+.herhaling-legende-gesplitst {
+  display: grid;
+  gap: 8px;
+}
+
+.herhaling-legende-regel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.herhaling-legende-regel span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .compacte-taart-legende {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -943,6 +971,16 @@ button:disabled {
   font-weight: bold;
   text-shadow: 0 1px 3px rgba(15, 23, 42, 0.65);
   pointer-events: none;
+}
+
+.herhaling-dagblok {
+  margin-top: 14px;
+}
+
+.herhaling-dagblok > h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 17px;
 }
 
 .object-analyse-keuze,
@@ -1041,7 +1079,7 @@ button:disabled {
   text-align: center;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .taartkaart.klikbaar {
@@ -1059,6 +1097,17 @@ button:disabled {
   line-height: 1.2;
 }
 
+.taartkop {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.taartkop h3,
+.taartkop .taart-subtitel {
+  margin: 0;
+}
+
 .taartdiagram {
   width: min(160px, 100%);
   aspect-ratio: 1 / 1;
@@ -1067,6 +1116,36 @@ button:disabled {
   display: grid;
   place-items: center;
   position: relative;
+}
+
+.taart-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  display: none;
+  min-width: 190px;
+  max-width: 260px;
+  padding: 9px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #111827;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.35;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.taart-tooltip span {
+  display: block;
+}
+
+.taartdiagram:hover .taart-tooltip {
+  display: grid;
+  gap: 3px;
 }
 
 .taart-midden {
@@ -1545,6 +1624,14 @@ button:disabled {
   font-size: 13px;
 }
 
+.taart-legende-titel {
+  display: block;
+  margin-top: 12px;
+  text-align: left;
+  color: #111827;
+  font-size: 13px;
+}
+
 .taart-legende span {
   display: flex;
   align-items: center;
@@ -1705,6 +1792,12 @@ button:disabled {
 
 .locatie-control button:hover {
   background: #f3f4f6;
+}
+
+.zones-control {
+  top: 10px;
+  left: 56px;
+  transform: none;
 }
 
 @media (max-width: 700px) {

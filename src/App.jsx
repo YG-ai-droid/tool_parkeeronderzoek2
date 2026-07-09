@@ -53,6 +53,8 @@ const parkeerRegimes = [
 ];
 
 const regimesMetMaxDuur = ["blauwe zone", "betalend parkeren", "laadpaal"];
+const TOOL_MODE =
+  window.PARKEER_TOOL_MODE === "invuller" ? "invuller" : "beheer-analyse";
 
 const standaardKleurGrenzen = {
   lichtgrijsTot: 40,
@@ -69,20 +71,7 @@ const standaardTelmomenten = [
   },
 ];
 
-const standaardZones = [
-  {
-    id: 1,
-    naam: "Kerkstraat",
-    capaciteit: 20,
-    invoer: "",
-    polygoon: [],
-    parkeerRegime: "vrij parkeren",
-    maxParkeerduur: "",
-    tellingen: {
-      1: [],
-    },
-  },
-];
+const standaardZones = [];
 
 const MAX_BACKUP_GROOTTE_BYTES = 10 * 1024 * 1024;
 const MAX_ZONES = 1000;
@@ -362,7 +351,7 @@ function normaliseerTelmomenten(telmomenten) {
 }
 
 function leesJsonSleutel(sleutel, standaardWaarde) {
-  const waarde = localStorage.getItem(sleutel);
+  const waarde = localStorage.getItem(opslagSleutel(sleutel));
   if (!waarde) return standaardWaarde;
 
   try {
@@ -372,22 +361,26 @@ function leesJsonSleutel(sleutel, standaardWaarde) {
   }
 }
 
+function opslagSleutel(sleutel) {
+  return TOOL_MODE === "invuller" ? `invuller:${sleutel}` : sleutel;
+}
+
 function maakLeegProjectData() {
   return {
     kleurGrenzen: standaardKleurGrenzen,
     telmomenten: standaardTelmomenten,
     actiefTelmomentId: 1,
     zones: standaardZones,
-    actieveZoneId: 1,
+    actieveZoneId: null,
     clusters: [],
     actiefClusterId: null,
     openClusterId: null,
-    geselecteerdeAnalistZones: standaardZones.map((zone) => zone.id),
+    geselecteerdeAnalistZones: [],
     geselecteerdeAnalistClusters: [],
     parkeerProfielen: [],
     analyseModus: "telmoment",
     analyseObjectType: "zone",
-    analyseObjectId: standaardZones[0].id,
+    analyseObjectId: null,
     actiefProfielId: null,
     analistRegimeFilter: "",
     nummerplaatEncryptieSalt: "",
@@ -546,8 +539,8 @@ function valideerBackupVoorImport(backup) {
     throw new Error("De back-up mist zones of telmomenten.");
   }
 
-  if (backup.zones.length === 0 || backup.telmomenten.length === 0) {
-    throw new Error("De back-up bevat geen zones of telmomenten.");
+  if (backup.telmomenten.length === 0) {
+    throw new Error("De back-up bevat geen telmomenten.");
   }
 
   if (backup.zones.length > MAX_ZONES) {
@@ -582,12 +575,12 @@ function leesLegacyProjectData() {
   const data = {
     kleurGrenzen: leesJsonSleutel("kleurGrenzen", standaardKleurGrenzen),
     telmomenten: leesJsonSleutel("telmomenten", standaardTelmomenten),
-    actiefTelmomentId: Number(localStorage.getItem("actiefTelmomentId")) || 1,
+    actiefTelmomentId: Number(localStorage.getItem(opslagSleutel("actiefTelmomentId"))) || 1,
     zones: leesJsonSleutel("parkeerZones", standaardZones),
-    actieveZoneId: Number(localStorage.getItem("actieveZoneId")) || 1,
+    actieveZoneId: Number(localStorage.getItem(opslagSleutel("actieveZoneId"))) || null,
     clusters: leesJsonSleutel("parkeerClusters", []),
-    actiefClusterId: Number(localStorage.getItem("actiefClusterId")) || null,
-    openClusterId: Number(localStorage.getItem("openClusterId")) || null,
+    actiefClusterId: Number(localStorage.getItem(opslagSleutel("actiefClusterId"))) || null,
+    openClusterId: Number(localStorage.getItem(opslagSleutel("openClusterId"))) || null,
     geselecteerdeAnalistZones: leesJsonSleutel(
       "geselecteerdeAnalistZones",
       null
@@ -629,16 +622,25 @@ function leesProjecten() {
   ];
 }
 
+function krijgToolModus() {
+  return TOOL_MODE;
+}
+
 function App() {
-  const [rol, setRol] = useState("beheerder");
+  const toolModus = krijgToolModus();
+  const isInvullerTool = toolModus === "invuller";
+  const beschikbareRollen = isInvullerTool
+    ? ["invuller"]
+    : ["beheerder", "analist"];
+  const [rol, setRol] = useState(isInvullerTool ? "invuller" : "beheerder");
   const [toonKaartTaarten, setToonKaartTaarten] = useState(true);
   const [linkerKolomBreedte, setLinkerKolomBreedte] = useState(() => {
-    const bewaardeBreedte = Number(localStorage.getItem("linkerKolomBreedte"));
+    const bewaardeBreedte = Number(localStorage.getItem(opslagSleutel("linkerKolomBreedte")));
     return bewaardeBreedte || 42;
   });
   const [projecten, setProjecten] = useState(leesProjecten);
   const [actiefProjectId, setActiefProjectId] = useState(() => {
-    const bewaardProjectId = Number(localStorage.getItem("actiefProjectId"));
+    const bewaardProjectId = Number(localStorage.getItem(opslagSleutel("actiefProjectId")));
     const beschikbareProjecten = leesProjecten();
 
     return (
@@ -806,11 +808,11 @@ function App() {
   }
 
   useEffect(() => {
-    localStorage.setItem("actiefProjectId", actiefProjectId);
+    localStorage.setItem(opslagSleutel("actiefProjectId"), actiefProjectId);
   }, [actiefProjectId]);
 
   useEffect(() => {
-    localStorage.setItem("linkerKolomBreedte", linkerKolomBreedte);
+    localStorage.setItem(opslagSleutel("linkerKolomBreedte"), linkerKolomBreedte);
   }, [linkerKolomBreedte]);
 
   useEffect(() => {
@@ -825,7 +827,7 @@ function App() {
     );
 
     localStorage.setItem(
-      "parkeerProjecten",
+      opslagSleutel("parkeerProjecten"),
       JSON.stringify(bijgewerkteProjecten)
     );
   }, [
@@ -916,6 +918,8 @@ function App() {
   }
 
   function wijzigRol(nieuweRol) {
+    if (!beschikbareRollen.includes(nieuweRol)) return;
+
     setRol(nieuweRol);
 
     if (nieuweRol === "invuller" && actiefTelmomentId === "gemiddelde") {
@@ -1502,11 +1506,9 @@ function App() {
     });
   }
 
-  function downloadBackup() {
-    if (!isBeheerder) return;
-
+  function exporteerData() {
     const zeker = confirm(
-      "Een back-up bevat alle ingevoerde nummerplaten. Deel dit bestand alleen met personen die deze gegevens mogen zien. Wil je doorgaan?"
+      "Deze data-export bevat alle projectgegevens en ingevoerde nummerplaten. Deel dit bestand alleen met personen die deze gegevens mogen zien. Wil je doorgaan?"
     );
     if (!zeker) return;
 
@@ -1538,22 +1540,20 @@ function App() {
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = `parkeeronderzoek-${sanitiseerBestandsnaam(
+    link.download = `parkeeronderzoek-data-${sanitiseerBestandsnaam(
       actiefProject.naam
-    )}-backup.json`;
+    )}.json`;
     link.click();
 
     URL.revokeObjectURL(url);
   }
 
-  function importeerBackup(event) {
-    if (!isBeheerder) return;
-
+  function importeerData(event) {
     const bestand = event.target.files[0];
     if (!bestand) return;
 
     if (bestand.size > MAX_BACKUP_GROOTTE_BYTES) {
-      alert("Dit back-upbestand is te groot om veilig te importeren.");
+      alert("Dit databestand is te groot om veilig te importeren.");
       event.target.value = "";
       return;
     }
@@ -1566,110 +1566,25 @@ function App() {
         const projectData = valideerBackupVoorImport(backup);
 
         const zeker = confirm(
-          "Ben je zeker dat je deze back-up wil importeren? De huidige gegevens worden overschreven."
+          "Ben je zeker dat je deze data wil importeren? De huidige gegevens worden overschreven."
         );
 
         if (!zeker) return;
 
         laadProjectData(projectData);
 
-        alert("Back-up succesvol geïmporteerd.");
+        alert("Data succesvol geimporteerd.");
       } catch (fout) {
         alert(
           fout instanceof Error
             ? fout.message
-            : "Het bestand kon niet gelezen worden als geldige JSON-back-up."
+            : "Het bestand kon niet gelezen worden als geldig JSON-databestand."
         );
       }
     };
 
     lezer.readAsText(bestand);
     event.target.value = "";
-  }
-
-  function exporteerCSV({ anoniem = false } = {}) {
-    if (!isBeheerder && !isAnalist) return;
-
-    if (!anoniem) {
-      const zeker = confirm(
-        "Deze CSV bevat de ingevoerde nummerplaten. Gebruik liever de geanonimiseerde export als je het bestand wil delen. Wil je toch doorgaan?"
-      );
-      if (!zeker) return;
-    }
-
-    const anoniemePlaten = new Map();
-    function krijgExportPlaat(plaat) {
-      if (!anoniem) return plaat;
-      if (!anoniemePlaten.has(plaat)) {
-        anoniemePlaten.set(plaat, `ANON${anoniemePlaten.size + 1}`);
-      }
-      return anoniemePlaten.get(plaat);
-    }
-
-    const rijen = [
-      [
-        "Telmoment",
-        "Datum",
-        "Tijdstip",
-        "Zone",
-        "Capaciteit",
-        "Parkeerregime",
-        "Max parkeerduur",
-        "Aantal voertuigen",
-        "Bezettingsgraad",
-        "Nummerplaten",
-      ],
-    ];
-
-    telmomenten.forEach((telmoment) => {
-      zones.forEach((zone) => {
-        const nummerplaten = krijgNummerplaten(zone, telmoment.id).map(
-          krijgExportPlaat
-        );
-        const aantal = nummerplaten.length;
-
-        const bezettingsgraad =
-          zone.capaciteit > 0
-            ? Math.round((aantal / zone.capaciteit) * 100)
-            : 0;
-
-        rijen.push([
-          telmoment.naam,
-          formatBelgischeDatumOptioneel(telmoment.datum),
-          telmoment.tijdstip,
-          zone.naam,
-          zone.capaciteit,
-          zone.parkeerRegime || "vrij parkeren",
-          zone.maxParkeerduur || "",
-          aantal,
-          `${bezettingsgraad}%`,
-          nummerplaten.join(", "),
-        ]);
-      });
-    });
-
-    const csv = rijen
-      .map((rij) =>
-        rij
-          .map((waarde) => `"${String(waarde).replaceAll('"', '""')}"`)
-          .join(";")
-      )
-      .join("\n");
-
-    const blob = new Blob(["\ufeff" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = anoniem
-      ? "parkeeronderzoek-resultaten-geanonimiseerd.csv"
-      : "parkeeronderzoek-resultaten.csv";
-    link.click();
-
-    URL.revokeObjectURL(url);
   }
 
   function downloadExcelInvulblad() {
@@ -1966,18 +1881,6 @@ function App() {
     alert(`${uniekePlaten.size} unieke nummerplaten versleuteld.`);
   }
 
-  function wisAlleGegevens() {
-    if (!isBeheerder) return;
-
-    const zeker = confirm(
-      `Ben je zeker dat je alle gegevens van project "${actiefProject.naam}" wil wissen?`
-    );
-
-    if (zeker) {
-      laadProjectData(maakLeegProjectData());
-    }
-  }
-
   function toggleAnalistZone(zoneId) {
     if (geselecteerdeAnalistZones.includes(zoneId)) {
       setGeselecteerdeAnalistZones(
@@ -2095,12 +1998,48 @@ function App() {
     </div>
   );
 
+  function renderDataKnoppen() {
+    return (
+      <div className="beheer-knopgroep">
+        <button onClick={exporteerData}>Data exporteren</button>
+
+        <label className="import-knop">
+          Data importeren
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={importeerData}
+            hidden
+          />
+        </label>
+      </div>
+    );
+  }
+
+  function renderExcelKnoppen() {
+    return (
+      <div className="beheer-knopgroep">
+        <button onClick={downloadExcelInvulblad}>Excel exporteren</button>
+
+        <label className="import-knop">
+          Excel importeren
+          <input
+            type="file"
+            accept=".xls,.xml,application/vnd.ms-excel,text/xml"
+            onChange={importeerExcelNummerplaten}
+            hidden
+          />
+        </label>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <div className="vaste-banner">
         <div className="banner-hoofd">
           <div className="banner-titelblok">
-            <h1>Parkeeronderzoek Tool</h1>
+            <h1>Parkeeronderzoek</h1>
             <p className="banner-roltekst">
               Actieve rol: <strong>{rol}</strong>.{" "}
               {isBeheerder &&
@@ -2112,108 +2051,63 @@ function App() {
             </p>
           </div>
 
-          <div className="rolkeuze">
-            <button
-              className={rol === "beheerder" ? "rol-actief" : ""}
-              onClick={() => wijzigRol("beheerder")}
-            >
-              Beheerder
-            </button>
-
-            <button
-              className={rol === "invuller" ? "rol-actief" : ""}
-              onClick={() => wijzigRol("invuller")}
-            >
-              Invuller
-            </button>
-
-            <button
-              className={rol === "analist" ? "rol-actief" : ""}
-              onClick={() => wijzigRol("analist")}
-            >
-              Analist
-            </button>
-          </div>
+          {beschikbareRollen.length > 1 && (
+            <div className="rolkeuze">
+              {beschikbareRollen.map((beschikbareRol) => (
+                <button
+                  className={rol === beschikbareRol ? "rol-actief" : ""}
+                  onClick={() => wijzigRol(beschikbareRol)}
+                  key={beschikbareRol}
+                >
+                  {beschikbareRol === "beheerder" && "Beheer"}
+                  {beschikbareRol === "invuller" && "Invuller"}
+                  {beschikbareRol === "analist" && "Analyse"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="banner-inhoud">
-          <div
-            className={`statusbalk project-kaart ${
-              isBeheerder ? "" : "project-kaart-compact"
-            }`}
-          >
-            <strong>Project</strong>
-            <select
-              value={actiefProjectId}
-              onChange={(e) => wisselProject(Number(e.target.value))}
+          {!isInvullerTool && (
+            <div
+              className={`statusbalk project-kaart ${
+                isBeheerder ? "" : "project-kaart-compact"
+              }`}
             >
-              {projecten.map((project) => (
-                <option value={project.id} key={project.id}>
-                  {project.naam}
-                </option>
-              ))}
-            </select>
+              <strong>Project</strong>
+              <select
+                value={actiefProjectId}
+                onChange={(e) => wisselProject(Number(e.target.value))}
+              >
+                {projecten.map((project) => (
+                  <option value={project.id} key={project.id}>
+                    {project.naam}
+                  </option>
+                ))}
+              </select>
 
-            {isBeheerder && (
-              <>
-                <input
-                  value={nieuweProjectNaam}
-                  onChange={(e) => setNieuweProjectNaam(e.target.value)}
-                  placeholder="Nieuwe of aangepaste projectnaam"
-                />
-                <button onClick={voegProjectToe}>Nieuw project</button>
-                <button onClick={hernoemProject}>Hernoem</button>
-                <button onClick={verwijderProject}>Verwijder</button>
-              </>
-            )}
-          </div>
+              {isBeheerder && (
+                <>
+                  <input
+                    value={nieuweProjectNaam}
+                    onChange={(e) => setNieuweProjectNaam(e.target.value)}
+                    placeholder="Nieuwe of aangepaste projectnaam"
+                  />
+                  <button onClick={voegProjectToe}>Nieuw project</button>
+                  <button onClick={hernoemProject}>Hernoem</button>
+                  <button onClick={verwijderProject}>Verwijder</button>
+                </>
+              )}
+            </div>
+          )}
 
           {isBeheerder && (
             <>
-              <div className="beheer-knoppen">
-                <div className="beheer-knopgroep">
-                  <button className="reset-knop" onClick={wisAlleGegevens}>
-                    Wis alle gegevens
-                  </button>
-                </div>
+              <div className="beheer-knoppen banner-acties">
+                {renderDataKnoppen()}
 
-                <div className="beheer-knopgroep">
-                  <button onClick={downloadBackup}>Download back-up</button>
-
-                  <label className="import-knop">
-                    Back-up importeren
-                    <input
-                      type="file"
-                      accept=".json,application/json"
-                      onChange={importeerBackup}
-                      hidden
-                    />
-                  </label>
-                </div>
-
-                <div className="beheer-knopgroep">
-                  <button onClick={exporteerCSV}>Exporteer CSV</button>
-
-                  <button onClick={() => exporteerCSV({ anoniem: true })}>
-                    CSV anoniem
-                  </button>
-                </div>
-
-                <div className="beheer-knopgroep">
-                  <button onClick={downloadExcelInvulblad}>
-                    Excel invulblad
-                  </button>
-
-                  <label className="import-knop">
-                    Excel importeren
-                    <input
-                      type="file"
-                      accept=".xls,.xml,application/vnd.ms-excel,text/xml"
-                      onChange={importeerExcelNummerplaten}
-                      hidden
-                    />
-                  </label>
-                </div>
+                {renderExcelKnoppen()}
               </div>
 
               <KleurcodeInstellingen
@@ -2230,23 +2124,15 @@ function App() {
             <>
               {telmomentSelectie}
               <div className="beheer-knoppen excel-knoppen">
-                <button onClick={downloadExcelInvulblad}>
-                  Excel invulblad
-                </button>
+                {renderDataKnoppen()}
 
-                <label className="import-knop">
-                  Excel importeren
-                  <input
-                    type="file"
-                    accept=".xls,.xml,application/vnd.ms-excel,text/xml"
-                    onChange={importeerExcelNummerplaten}
-                    hidden
-                  />
-                </label>
+                {renderExcelKnoppen()}
 
-                <button onClick={versleutelNummerplaten}>
-                  Nummerplaten versleutelen
-                </button>
+                <div className="beheer-knopgroep">
+                  <button onClick={versleutelNummerplaten}>
+                    Nummerplaten versleutelen
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -2292,6 +2178,9 @@ function App() {
                   />
                   Toon taartdiagrammen op kaart
                 </label>
+              </div>
+              <div className="beheer-knoppen data-knoppen">
+                {renderDataKnoppen()}
               </div>
             </>
           )}
