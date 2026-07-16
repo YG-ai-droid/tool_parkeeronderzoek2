@@ -1800,6 +1800,12 @@ button:disabled {
   transform: none;
 }
 
+.zones-control-onder-locatie {
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 @media (max-width: 700px) {
   html,
   body {

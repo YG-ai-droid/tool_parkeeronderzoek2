@@ -38,7 +38,7 @@ function ZoomNaarProjectZones({ zones, actiefProjectId }) {
   return null;
 }
 
-function CentreerZonesKnop({ zones, tonen }) {
+function CentreerZonesKnop({ zones, tonen, onderLocatieKnop }) {
   const map = useMap();
 
   if (!tonen) return null;
@@ -61,7 +61,11 @@ function CentreerZonesKnop({ zones, tonen }) {
   }
 
   return (
-    <div className="locatie-control zones-control">
+    <div
+      className={`locatie-control zones-control ${
+        onderLocatieKnop ? "zones-control-onder-locatie" : ""
+      }`}
+    >
       <button type="button" onClick={centreerOpZones}>
         Centreer kaart op zones
       </button>
@@ -277,7 +281,8 @@ function ParkeerKaart({
         />
         <CentreerZonesKnop
           zones={zones}
-          tonen={isBeheerder || isAnalist}
+          tonen={isBeheerder || isAnalist || isInvuller}
+          onderLocatieKnop={isInvuller}
         />
         <MijnLocatieKnop isInvuller={isInvuller} />
 

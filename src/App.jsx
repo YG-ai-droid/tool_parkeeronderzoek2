@@ -134,26 +134,40 @@ function maakZoneExcelSleutel(zone) {
   ].join("::");
 }
 
-function maakExcelTemplateXml({ projectNaam, telmomenten, zones }) {
-  const rijen = [
-    maakExcelRij([
-      "Project",
-      "Telmoment",
-      "Datum",
-      "Tijdstip",
-      "Tellocatie",
-      "Capaciteit",
-      "Parkeerregime",
-      "Parkeervak",
-      "Nummerplaat",
-    ]),
-  ];
+function sanitiseerExcelWerkbladNaam(waarde, fallback) {
+  const naam = String(waarde || fallback)
+    .replace(/[\\/:*?]/g, "-")
+    .replaceAll("[", "-")
+    .replaceAll("]", "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 31);
 
-  telmomenten.forEach((telmoment) => {
+  return naam || fallback;
+}
+
+function maakExcelTemplateXml({ projectNaam, telmomenten, zones }) {
+  const kolomKoppen = [
+    "Project",
+    "Telmoment",
+    "Datum",
+    "Tijdstip",
+    "Tellocatie",
+    "Capaciteit",
+    "Parkeerregime",
+    "Parkeervak",
+    "Nummerplaat",
+  ];
+  const gebruikteWerkbladNamen = new Set();
+
+  const werkbladen = telmomenten.map((telmoment, telmomentIndex) => {
+    const rijen = [maakExcelRij(kolomKoppen)];
+
     zones.forEach((zone) => {
+      const capaciteit = Math.max(0, Number(zone.capaciteit || 0));
       const aantalVakjes = Math.min(
         MAX_NUMMERPLATEN_PER_TELLING,
-        Math.max(10, Math.ceil(Number(zone.capaciteit || 0) * 1.15), Number(zone.capaciteit || 0) + 5)
+        Math.max(5, Math.ceil(capaciteit * 1.05), capaciteit + 5)
       );
 
       for (let index = 1; index <= aantalVakjes; index += 1) {
@@ -172,6 +186,29 @@ function maakExcelTemplateXml({ projectNaam, telmomenten, zones }) {
         );
       }
     });
+
+    const basisNaam = sanitiseerExcelWerkbladNaam(
+      `${telmoment.naam || `Telmoment ${telmomentIndex + 1}`} ${
+        telmoment.tijdstip || ""
+      }`,
+      `Telmoment ${telmomentIndex + 1}`
+    );
+    let werkbladNaam = basisNaam;
+    let teller = 2;
+
+    while (gebruikteWerkbladNamen.has(werkbladNaam)) {
+      const suffix = ` ${teller}`;
+      werkbladNaam = `${basisNaam.slice(0, 31 - suffix.length)}${suffix}`;
+      teller += 1;
+    }
+
+    gebruikteWerkbladNamen.add(werkbladNaam);
+
+    return `<Worksheet ss:Name="${escapeXml(werkbladNaam)}">
+    <Table ss:ExpandedColumnCount="${EXCEL_TEMPLATE_KOLOMMEN}" ss:ExpandedRowCount="${rijen.length}">
+      ${rijen.join("\n      ")}
+    </Table>
+  </Worksheet>`;
   });
 
   return `<?xml version="1.0"?>
@@ -186,11 +223,7 @@ function maakExcelTemplateXml({ projectNaam, telmomenten, zones }) {
       <Interior ss:Color="#D9EAF7" ss:Pattern="Solid"/>
     </Style>
   </Styles>
-  <Worksheet ss:Name="Nummerplaten">
-    <Table ss:ExpandedColumnCount="${EXCEL_TEMPLATE_KOLOMMEN}" ss:ExpandedRowCount="${rijen.length}">
-      ${rijen.join("\n      ")}
-    </Table>
-  </Worksheet>
+  ${werkbladen.join("\n  ")}
 </Workbook>`;
 }
 
@@ -860,6 +893,17 @@ function App() {
   const isBeheerder = rol === "beheerder";
   const isInvuller = rol === "invuller";
   const isAnalist = rol === "analist";
+  const laatsteTelmoment = [...telmomenten].sort((a, b) =>
+    `${a.datum || ""}T${a.tijdstip || "00:00"}`.localeCompare(
+      `${b.datum || ""}T${b.tijdstip || "00:00"}`
+    )
+  )[telmomenten.length - 1];
+  const heeftDataInLaatsteTelmoment = Boolean(
+    laatsteTelmoment &&
+      zones.some(
+        (zone) => krijgNummerplaten(zone, laatsteTelmoment.id).length > 0
+      )
+  );
 
   function wisselProject(projectId) {
     if (projectId === actiefProjectId) return;
@@ -1628,22 +1672,11 @@ function App() {
     const worksheets = Array.from(documentXml.getElementsByTagName("*")).filter(
       (element) => element.localName === "Worksheet"
     );
-    const nummerplatenSheet =
-      worksheets.find(
-        (sheet) =>
-          sheet.getAttribute("ss:Name") === "Nummerplaten" ||
-          sheet.getAttribute("Name") === "Nummerplaten"
-      ) || worksheets[0];
-
-    if (!nummerplatenSheet) {
+    if (worksheets.length === 0) {
       throw new Error("Het Excel-bestand bevat geen leesbaar werkblad.");
     }
 
-    const rows = Array.from(nummerplatenSheet.getElementsByTagName("*")).filter(
-      (element) => element.localName === "Row"
-    );
-
-    return rows.map((row) => {
+    function leesRij(row) {
       const waarden = [];
       let celIndex = 0;
       const cells = Array.from(row.children).filter(
@@ -1665,7 +1698,13 @@ function App() {
       });
 
       return waarden;
-    });
+    }
+
+    return worksheets.flatMap((worksheet) =>
+      Array.from(worksheet.getElementsByTagName("*"))
+        .filter((element) => element.localName === "Row")
+        .map(leesRij)
+    );
   }
 
   function importeerExcelNummerplaten(event) {
@@ -1802,6 +1841,167 @@ function App() {
     event.target.value = "";
   }
 
+  function leesJsonBestand(bestand) {
+    return new Promise((resolve, reject) => {
+      if (bestand.size > MAX_BACKUP_GROOTTE_BYTES) {
+        reject(new Error(`"${bestand.name}" is te groot om veilig te importeren.`));
+        return;
+      }
+
+      const lezer = new FileReader();
+
+      lezer.onload = function (e) {
+        try {
+          resolve(JSON.parse(e.target.result));
+        } catch {
+          reject(new Error(`"${bestand.name}" is geen geldig JSON-bestand.`));
+        }
+      };
+
+      lezer.onerror = function () {
+        reject(new Error(`"${bestand.name}" kon niet gelezen worden.`));
+      };
+
+      lezer.readAsText(bestand);
+    });
+  }
+
+  async function voegDataSamen(event) {
+    const bestanden = Array.from(event.target.files || []);
+    if (bestanden.length === 0) return;
+
+    try {
+      const zeker = confirm(
+        "De geselecteerde data wordt samengevoegd met de huidige lokale data. Bestaande registraties blijven behouden en nieuwe registraties worden toegevoegd. Doorgaan?"
+      );
+      if (!zeker) return;
+
+      const backups = await Promise.all(bestanden.map(leesJsonBestand));
+      const imports = backups.map((backup) => valideerBackupVoorImport(backup));
+      const zoneIds = new Set(zones.map((zone) => zone.id));
+      const telmomentIds = new Set(telmomenten.map((telmoment) => telmoment.id));
+      const platenPerSleutel = new Map();
+      const zonesMetToevoeging = new Set();
+      const onbekendeZones = new Set();
+      const onbekendeTelmomenten = new Set();
+      let gelezenRegistraties = 0;
+      let dubbeleRegistraties = 0;
+      let overgeslagenRegistraties = 0;
+
+      imports.forEach((projectData) => {
+        projectData.zones.forEach((importZone) => {
+          if (!zoneIds.has(importZone.id)) {
+            onbekendeZones.add(importZone.naam || importZone.id);
+            return;
+          }
+
+          Object.entries(importZone.tellingen || {}).forEach(
+            ([telmomentIdTekst, platen]) => {
+              const telmomentId = normaliseerId(telmomentIdTekst, null);
+
+              if (!telmomentIds.has(telmomentId)) {
+                onbekendeTelmomenten.add(telmomentIdTekst);
+                return;
+              }
+
+              if (!Array.isArray(platen)) return;
+
+              const sleutel = `${importZone.id}::${telmomentId}`;
+              if (!platenPerSleutel.has(sleutel)) {
+                platenPerSleutel.set(sleutel, new Set());
+              }
+
+              const importSet = platenPerSleutel.get(sleutel);
+              platen.forEach((plaat) => {
+                const normalePlaat = normaliseerNummerplaat(plaat);
+                if (!normalePlaat) return;
+                gelezenRegistraties += 1;
+                if (importSet.has(normalePlaat)) {
+                  dubbeleRegistraties += 1;
+                  return;
+                }
+                importSet.add(normalePlaat);
+              });
+            }
+          );
+        });
+      });
+
+      let toegevoegd = 0;
+
+      setZones(
+        zones.map((zone) => {
+          const nieuweTellingen = { ...(zone.tellingen || {}) };
+
+          telmomenten.forEach((telmoment) => {
+            const sleutel = `${zone.id}::${telmoment.id}`;
+            const importPlaten = platenPerSleutel.get(sleutel);
+            if (!importPlaten) return;
+
+            const bestaandePlaten = new Set(
+              (nieuweTellingen[telmoment.id] || [])
+                .map(normaliseerNummerplaat)
+                .filter(Boolean)
+            );
+
+            importPlaten.forEach((plaat) => {
+              if (bestaandePlaten.has(plaat)) {
+                dubbeleRegistraties += 1;
+                return;
+              }
+
+              if (bestaandePlaten.size >= MAX_NUMMERPLATEN_PER_TELLING) {
+                overgeslagenRegistraties += 1;
+                return;
+              }
+
+              bestaandePlaten.add(plaat);
+              toegevoegd += 1;
+              zonesMetToevoeging.add(zone.naam);
+            });
+
+            nieuweTellingen[telmoment.id] = Array.from(bestaandePlaten);
+          });
+
+          return { ...zone, tellingen: nieuweTellingen };
+        })
+      );
+
+      alert(
+        [
+          `${bestanden.length} bestand(en) verwerkt.`,
+          `${toegevoegd} nieuwe registratie(s) toegevoegd.`,
+          `${dubbeleRegistraties} dubbele registratie(s) overgeslagen.`,
+          overgeslagenRegistraties > 0
+            ? `${overgeslagenRegistraties} registratie(s) niet toegevoegd door de maximumlimiet.`
+            : null,
+          onbekendeZones.size > 0
+            ? `${onbekendeZones.size} onbekende zone(s) gevonden.`
+            : null,
+          onbekendeTelmomenten.size > 0
+            ? `${onbekendeTelmomenten.size} onbekende telmoment(en) gevonden.`
+            : null,
+          zonesMetToevoeging.size > 0
+            ? `Zones met toevoegingen: ${Array.from(zonesMetToevoeging)
+                .slice(0, 8)
+                .join(", ")}${zonesMetToevoeging.size > 8 ? ", ..." : ""}`
+            : "Er werden geen nieuwe registraties toegevoegd.",
+          `Gelezen registraties: ${gelezenRegistraties}.`,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
+    } catch (fout) {
+      alert(
+        fout instanceof Error
+          ? fout.message
+          : "De geselecteerde databestanden konden niet worden samengevoegd."
+      );
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   async function versleutelPlaat(plaat, salt) {
     const data = new TextEncoder().encode(`${salt}:${normaliseerNummerplaat(plaat)}`);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -1816,6 +2016,13 @@ function App() {
 
   async function versleutelNummerplaten() {
     if (!isInvuller) return;
+
+    if (!heeftDataInLaatsteTelmoment) {
+      alert(
+        "Versleutelen kan pas nadat er in het laatste telmoment minstens een registratie is ingevuld."
+      );
+      return;
+    }
 
     if (!crypto.subtle) {
       alert("Versleutelen wordt niet ondersteund door deze browser.");
@@ -2012,6 +2219,17 @@ function App() {
             hidden
           />
         </label>
+
+        <label className="import-knop">
+          Data samenvoegen
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={voegDataSamen}
+            multiple
+            hidden
+          />
+        </label>
       </div>
     );
   }
@@ -2129,7 +2347,15 @@ function App() {
                 {renderExcelKnoppen()}
 
                 <div className="beheer-knopgroep">
-                  <button onClick={versleutelNummerplaten}>
+                  <button
+                    onClick={versleutelNummerplaten}
+                    disabled={!heeftDataInLaatsteTelmoment}
+                    title={
+                      heeftDataInLaatsteTelmoment
+                        ? "Nummerplaten versleutelen"
+                        : "Versleutelen kan pas na registratie in het laatste telmoment."
+                    }
+                  >
                     Nummerplaten versleutelen
                   </button>
                 </div>
